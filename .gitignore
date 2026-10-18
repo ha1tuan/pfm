@@ -27,4 +27,5 @@ dist/
 bin/
 obj/
 .scratch
+docs/
 >>>>>>> 37af745 ('init')
