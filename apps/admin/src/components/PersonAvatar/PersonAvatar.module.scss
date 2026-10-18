@@ -1,0 +1,65 @@
+@use '@/styles/variables' as *;
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-pill;
+  font-family: $font-sans;
+  font-weight: 700;
+  line-height: 1;
+
+  &[data-tone='green'] {
+    background: $green-100;
+    color: $green-800;
+  }
+
+  &[data-tone='gold'] {
+    background: $gold-100;
+    color: $gold-700;
+  }
+
+  &[data-tone='blue'] {
+    background: $blue-50;
+    color: $blue-600;
+  }
+
+  &[data-tone='violet'] {
+    background: $violet-50;
+    color: $violet-500;
+  }
+
+  &[data-tone='coral'] {
+    background: $coral-50;
+    color: $coral-500;
+  }
+}
+
+.sm {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.md {
+  width: 38px;
+  height: 38px;
+  font-size: 14px;
+}
+
+.lg {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+}
+
+.xl {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+
+.ring {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px $green-400;
+}

@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "PFM",
+    "slug": "pfm",
+    "scheme": "pfm",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F5F8F6",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "vn.pfm.wallet",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "PFM dùng Face ID để mở khóa ứng dụng và xác thực giao dịch."
+      }
+    },
+    "android": {
+      "package": "vn.pfm.wallet",
+      "softwareKeyboardLayoutMode": "resize"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        { "backgroundColor": "#064E3B" }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        { "faceIDPermission": "PFM dùng Face ID để mở khóa ứng dụng và xác thực giao dịch." }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

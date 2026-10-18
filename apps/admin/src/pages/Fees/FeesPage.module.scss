@@ -1,0 +1,32 @@
+@use '@/styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rule {
+  font-weight: 700;
+  color: $text-strong;
+}
+
+.free {
+  color: $green-600;
+}
+
+// Rows that differ from the version currently in effect.
+.changed {
+  > td {
+    background: $gold-50 !important;
+  }
+}
+
+.bandCell {
+  font-size: 12px;
+  color: $text-muted;
+}
+
+.fullWidth {
+  width: 100%;
+}

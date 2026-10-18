@@ -1,0 +1,61 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.amount {
+  color: $money-out;
+  white-space: nowrap;
+}
+
+.currency {
+  margin-left: 3px;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.sm {
+  @include amount(14px, 600);
+
+  .currency {
+    font-size: 12px;
+  }
+}
+
+.md {
+  @include amount(17px, 700);
+
+  .currency {
+    font-size: 13px;
+  }
+}
+
+.lg {
+  @include amount(28px);
+
+  .currency {
+    font-size: 16px;
+  }
+}
+
+.xl {
+  @include amount(36px);
+
+  .currency {
+    font-size: 20px;
+  }
+}
+
+.moneyIn {
+  color: $money-in;
+}
+
+.inverse {
+  color: #fff;
+}
+
+.brand {
+  color: $green-900;
+}
+
+.muted {
+  color: $text-muted;
+}

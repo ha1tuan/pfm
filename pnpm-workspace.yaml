@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Optional native watcher for sass; prebuilt fallback is fine.
+allowBuilds:
+  "@parcel/watcher": false
+
+minimumReleaseAgeExclude:
+  - "@expo/ui@57.0.25"
+  - expo-router@57.0.28

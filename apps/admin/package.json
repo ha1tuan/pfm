@@ -1,0 +1,36 @@
+{
+  "name": "@ffm/admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "@hookform/resolvers": "^5.9.1",
+    "@tanstack/react-query": "^5.104.2",
+    "antd": "^6.6.6",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.23",
+    "lucide-react": "^1.57.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-hook-form": "^7.90.0",
+    "react-router-dom": "^7.18.4",
+    "zod": "^4.6.7",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "sass": "^1.105.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

@@ -1,0 +1,80 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tabs {
+  :global(.ant-tabs-nav) {
+    margin: 0;
+  }
+}
+
+.filters {
+  @include card;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+}
+
+.field {
+  display: flex;
+  flex: 1 1 160px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  > span {
+    font: 600 13px/18px $font-sans;
+    color: $text-heading;
+  }
+
+  &[data-grow='2'] {
+    flex: 2 1 220px;
+  }
+
+  &[data-grow='1.4'] {
+    flex: 1.4 1 240px;
+  }
+}
+
+.table {
+  @include card;
+
+  overflow: hidden;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.mono {
+  @include mono;
+
+  color: $text-body;
+}
+
+.monoSmall {
+  @include mono(12px);
+
+  color: $text-muted;
+}
+
+.strong {
+  color: $text-strong;
+  font-weight: 600;
+}
+
+.muted {
+  color: $text-subtle;
+}
+
+.fullWidth {
+  width: 100%;
+}

@@ -1,0 +1,40 @@
+@use '@/styles/variables' as *;
+
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.fillTop {
+  stop-color: $green-500;
+  stop-opacity: 0.22;
+}
+
+.fillBottom {
+  stop-color: $green-500;
+  stop-opacity: 0;
+}
+
+.grid {
+  stroke: $neutral-100;
+  stroke-dasharray: 3 4;
+}
+
+.line {
+  fill: none;
+  stroke: $green-600;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.latest {
+  fill: $gold-400;
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.axis {
+  font: 500 11px $font-sans;
+  fill: $neutral-400;
+}
