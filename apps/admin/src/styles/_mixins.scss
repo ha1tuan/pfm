@@ -1,0 +1,47 @@
+@use 'variables' as *;
+
+@mixin card {
+  background: $surface-card;
+  border: 1px solid $border-subtle;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-xs;
+}
+
+@mixin card-title {
+  font: 700 16px/22px $font-sans;
+  color: $text-heading;
+  letter-spacing: $ls-snug;
+}
+
+@mixin caption {
+  font: 500 12px/16px $font-sans;
+  color: $text-muted;
+}
+
+@mixin mono($size: 13px) {
+  font: 500 #{$size}/18px $font-mono;
+}
+
+@mixin amount($size, $weight: 800) {
+  font-family: $font-sans;
+  font-size: $size;
+  font-weight: $weight;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+
+  @if $size >= 28px {
+    letter-spacing: $ls-tight;
+  } @else {
+    letter-spacing: -0.005em;
+  }
+}
+
+@mixin icon-tile($size: 36px, $radius: 12px) {
+  width: $size;
+  height: $size;
+  flex: none;
+  border-radius: $radius;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

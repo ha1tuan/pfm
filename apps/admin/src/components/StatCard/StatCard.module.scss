@@ -1,0 +1,122 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.card {
+  @include card;
+
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.label {
+  font: 600 13px/18px $font-sans;
+  color: $text-muted;
+}
+
+.icon {
+  @include icon-tile(32px, 10px);
+
+  background: $green-50;
+  color: $green-700;
+}
+
+.value {
+  @include amount(28px);
+
+  color: $text-heading;
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 12px/16px $font-sans;
+  color: $text-muted;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: $radius-pill;
+  font-weight: 700;
+
+  &[data-sentiment='good'] {
+    background: $green-50;
+    color: $green-700;
+  }
+
+  &[data-sentiment='bad'] {
+    background: $red-50;
+    color: $red-600;
+  }
+}
+
+// Deep-green hero variant: the one card that carries the day's headline number.
+.highlight {
+  position: relative;
+  overflow: hidden;
+  background: $green-900;
+  border-color: $green-900;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    border-radius: $radius-pill;
+    pointer-events: none;
+  }
+
+  &::before {
+    width: 150px;
+    height: 150px;
+    right: -60px;
+    top: -70px;
+    background: $green-600;
+    opacity: 0.5;
+  }
+
+  &::after {
+    width: 54px;
+    height: 54px;
+    right: 26px;
+    bottom: -30px;
+    background: $gold-400;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .label,
+  .foot {
+    color: $green-200;
+  }
+
+  .icon {
+    background: rgba(255, 255, 255, 0.12);
+    color: $green-300;
+  }
+
+  .value {
+    color: #fff;
+  }
+
+  .delta[data-sentiment='good'] {
+    background: rgba(93, 211, 158, 0.18);
+    color: $green-300;
+  }
+}

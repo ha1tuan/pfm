@@ -1,0 +1,82 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filters {
+  @include card;
+
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+}
+
+.field {
+  display: flex;
+  flex: 1 1 180px;
+  flex-direction: column;
+  gap: 6px;
+
+  > span {
+    font: 600 13px/18px $font-sans;
+    color: $text-heading;
+  }
+
+  &[data-grow='2'] {
+    flex: 2 1 260px;
+  }
+}
+
+.table {
+  @include card;
+
+  overflow: hidden;
+}
+
+.actor {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.strong {
+  color: $text-strong;
+  font-weight: 600;
+}
+
+.role {
+  font: 500 11px/14px $font-sans;
+  color: $text-muted;
+}
+
+.mono {
+  @include mono;
+
+  color: $text-body;
+}
+
+.target {
+  @include mono;
+
+  color: $green-700;
+}
+
+.change {
+  padding: 3px 8px;
+  border-radius: $radius-xs;
+  background: $neutral-50;
+
+  @include mono(12px);
+
+  color: $text-body;
+}
+
+.muted {
+  color: $text-subtle;
+}

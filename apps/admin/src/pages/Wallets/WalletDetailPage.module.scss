@@ -1,0 +1,157 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.page {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.name {
+  font: 700 17px/24px $font-sans;
+  color: $text-heading;
+}
+
+.mono {
+  @include mono(12px);
+
+  color: $text-muted;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+// Deep-green balance block with the brand's cropped-circle motif.
+.balance {
+  position: relative;
+  overflow: hidden;
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 16px;
+  background: $green-900;
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    right: -50px;
+    top: -60px;
+    border-radius: $radius-pill;
+    background: $green-600;
+    opacity: 0.5;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.balanceLabel,
+.balanceHeld {
+  font: 600 12px/16px $font-sans;
+  color: $green-200;
+}
+
+.balanceHeld {
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.facts {
+  margin: 8px 0 0;
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid $border-subtle;
+  font: 500 13px/18px $font-sans;
+
+  dt {
+    color: $text-muted;
+  }
+
+  dd {
+    margin: 0;
+    color: $text-strong;
+    font-weight: 600;
+    text-align: right;
+  }
+}
+
+.device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid $border-subtle;
+  color: $green-700;
+}
+
+.deviceTitle {
+  font: 600 13px/18px $font-sans;
+  color: $text-strong;
+}
+
+.deviceMeta {
+  @include caption;
+}
+
+.lockRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.lockTitle {
+  font: 600 13px/18px $font-sans;
+  color: $text-strong;
+}
+
+.lockHint {
+  @include caption;
+}
+
+.usage {
+  margin-bottom: 12px;
+}
+
+.usageRow {
+  display: flex;
+  justify-content: space-between;
+  font: 500 12px/16px $font-sans;
+  color: $text-muted;
+}
+
+.banks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.clickable {
+  cursor: pointer;
+}

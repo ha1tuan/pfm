@@ -1,0 +1,52 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.section {
+  @include card;
+
+  padding: 20px;
+  min-width: 0;
+}
+
+.sunken {
+  background: $surface-sunken;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.title {
+  @include card-title;
+
+  margin: 0;
+}
+
+.subtitle {
+  @include caption;
+
+  margin-top: 2px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flush {
+  padding: 0;
+  overflow: hidden;
+
+  .header {
+    margin: 0;
+    padding: 16px 20px;
+    border-bottom: 1px solid $border-subtle;
+  }
+}

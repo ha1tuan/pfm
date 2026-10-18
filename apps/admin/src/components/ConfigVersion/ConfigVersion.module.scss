@@ -1,0 +1,67 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: $gold-50;
+  font: 500 13px/18px $font-sans;
+  color: $gold-700;
+}
+
+.noticeIcon {
+  flex: none;
+}
+
+.pending {
+  border-color: $gold-300;
+  box-shadow: 0 0 0 3px rgba(245, 183, 59, 0.14);
+}
+
+.note {
+  margin: 0 0 14px;
+  font: 500 14px/20px $font-sans;
+  color: $text-strong;
+}
+
+.diffLabel {
+  margin-bottom: 8px;
+  font: 600 12px/16px $font-sans;
+  color: $text-muted;
+}
+
+.empty {
+  @include card;
+
+  padding: 18px 20px;
+  font: 500 13px/18px $font-sans;
+  color: $text-muted;
+}
+
+.mono {
+  @include mono;
+
+  color: $green-700;
+}
+
+.strong {
+  color: $text-strong;
+  font-weight: 600;
+}
+
+.editor {
+  margin: 8px 0 20px;
+}
+
+.metaForm {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+}
+
+.fullWidth {
+  width: 100%;
+}

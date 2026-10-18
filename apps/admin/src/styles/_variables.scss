@@ -1,0 +1,114 @@
+// PFM design tokens (source: PFM Design System — tokens/*.css).
+// Mirrored in src/theme/antdTheme.ts for Ant Design's ConfigProvider; change both together.
+
+// Brand — green
+$green-50: #eef7f1;
+$green-100: #d7efe0;
+$green-200: #b2e4c9;
+$green-300: #86dab2;
+$green-400: #5dd39e;
+$green-500: #1fa673;
+$green-600: #0e8a5f;
+$green-700: #0b7552;
+$green-800: #085f44;
+$green-900: #064e3b;
+$green-950: #03301f;
+
+// Brand — gold (prosperity; use sparingly)
+$gold-50: #fef7e6;
+$gold-100: #fdebc2;
+$gold-300: #f8c862;
+$gold-400: #f5b73b;
+$gold-500: #e59f1a;
+$gold-600: #c38213;
+$gold-700: #94610f;
+
+// Neutrals — green-tinted
+$neutral-0: #ffffff;
+$neutral-25: #f5f8f6;
+$neutral-50: #eff3f1;
+$neutral-100: #e3eae6;
+$neutral-200: #cfdad4;
+$neutral-300: #b0bfb7;
+$neutral-400: #8a9b92;
+$neutral-500: #66786f;
+$neutral-600: #4b5c54;
+$neutral-700: #34433c;
+$neutral-800: #1f2b26;
+
+// Status
+$red-50: #fdedee;
+$red-500: #e5484d;
+$red-600: #c9353a;
+$blue-50: #eaf2fd;
+$blue-500: #2f7fe0;
+$blue-600: #1f66bf;
+$violet-50: #f1eefd;
+$violet-500: #7a5af0;
+$coral-50: #fff0ea;
+$coral-500: #ff7a50;
+
+// Semantic
+$surface-page: $neutral-25;
+$surface-card: $neutral-0;
+$surface-sunken: $neutral-50;
+$surface-tint: $green-50;
+$surface-inverse: $green-900;
+$surface-overlay: rgba(6, 30, 22, 0.48);
+
+$text-strong: $green-950;
+$text-heading: $green-900;
+$text-body: $neutral-700;
+$text-muted: $neutral-500;
+$text-subtle: $neutral-400;
+
+$border-subtle: $neutral-100;
+$border-default: $neutral-200;
+$border-brand: #cfe7d9;
+
+$money-in: $green-600;
+$money-out: $neutral-800;
+
+// Type
+$font-sans: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+$ls-tight: -0.02em;
+$ls-snug: -0.01em;
+
+// Spacing (4px base)
+$space-1: 2px;
+$space-2: 4px;
+$space-3: 8px;
+$space-4: 12px;
+$space-5: 16px;
+$space-6: 20px;
+$space-7: 24px;
+$space-8: 32px;
+$gutter-admin: 28px;
+
+// Radii — soft, echoing the rounded wallet mark
+$radius-xs: 6px;
+$radius-sm: 10px;
+$radius-md: 14px;
+$radius-lg: 20px;
+$radius-xl: 28px;
+$radius-pill: 999px;
+
+// Shadows — tinted with deep green
+$shadow-xs: 0 1px 2px rgba(6, 78, 59, 0.06);
+$shadow-sm: 0 2px 6px rgba(6, 78, 59, 0.06), 0 1px 2px rgba(6, 78, 59, 0.05);
+$shadow-md: 0 8px 24px rgba(6, 78, 59, 0.08), 0 2px 6px rgba(6, 78, 59, 0.05);
+$shadow-lg: 0 20px 48px rgba(6, 78, 59, 0.14), 0 4px 12px rgba(6, 78, 59, 0.06);
+$shadow-brand: 0 10px 24px rgba(14, 138, 95, 0.3);
+$shadow-gold: 0 8px 20px rgba(229, 159, 26, 0.32);
+
+// Motion
+$ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+$ease-std: cubic-bezier(0.4, 0, 0.2, 1);
+$dur-fast: 120ms;
+$dur-base: 200ms;
+$dur-slow: 320ms;
+
+// Layout
+$sidebar-width: 248px;
+$z-drawer: 40;

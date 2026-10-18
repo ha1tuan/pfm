@@ -1,0 +1,162 @@
+@use '@/styles/variables' as *;
+@use '@/styles/mixins' as *;
+
+.id {
+  @include mono;
+
+  color: $text-muted;
+}
+
+.headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.relation {
+  margin-top: 8px;
+  font: 500 12px/16px $font-sans;
+  color: $text-muted;
+}
+
+.facts {
+  margin: 18px 0 0;
+  padding: 4px 16px;
+  border-radius: $radius-lg;
+  background: $surface-sunken;
+}
+
+.fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid $border-default;
+  font: 500 13px/18px $font-sans;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  dt {
+    color: $text-muted;
+  }
+
+  dd {
+    margin: 0;
+    color: $text-strong;
+    font-weight: 600;
+    text-align: right;
+  }
+}
+
+.mono {
+  font-family: $font-mono;
+}
+
+.sectionTitle {
+  margin: 22px 0 12px;
+  font: 700 14px/20px $font-sans;
+  color: $text-heading;
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  --step-bg: #{$neutral-200};
+
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+
+  // Connector line between step dots.
+  &:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 26px;
+    bottom: 2px;
+    width: 2px;
+    border-radius: 2px;
+    background: $neutral-100;
+  }
+
+  &[data-state='done'] {
+    --step-bg: #{$green-600};
+  }
+
+  &[data-state='current'] {
+    --step-bg: #{$gold-400};
+  }
+
+  &[data-state='failed'] {
+    --step-bg: #{$red-500};
+  }
+}
+
+.stepIcon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-pill;
+  background: var(--step-bg);
+  color: #fff;
+}
+
+.stepLabel {
+  font: 600 13px/18px $font-sans;
+  color: $text-strong;
+}
+
+.stepDetail {
+  @include mono(12px);
+
+  color: $text-muted;
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font: 500 12px/16px $font-sans;
+
+  th {
+    padding: 6px 0;
+    text-align: right;
+    font-weight: 600;
+    color: $text-muted;
+    border-bottom: 1px solid $border-subtle;
+  }
+
+  td {
+    padding: 9px 0;
+    border-bottom: 1px solid $border-subtle;
+    color: $text-strong;
+
+    &:not(:first-child) {
+      width: 96px;
+      text-align: right;
+      font-family: $font-mono;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+.footer {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.dialogBody {
+  margin: 0 0 16px;
+  color: $text-muted;
+}

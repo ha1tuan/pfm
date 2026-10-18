@@ -1,0 +1,44 @@
+@use '@/styles/variables' as *;
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mark {
+  width: 36px;
+  height: 36px;
+}
+
+.body {
+  fill: $green-600;
+}
+
+.flap {
+  fill: $green-500;
+}
+
+.keyhole {
+  fill: $gold-400;
+}
+
+.word {
+  font: 800 24px/1 $font-sans;
+  letter-spacing: $ls-tight;
+  color: $green-900;
+}
+
+.light {
+  .body {
+    fill: $green-600;
+  }
+
+  .flap {
+    fill: $green-400;
+  }
+
+  .word {
+    color: #fff;
+  }
+}
