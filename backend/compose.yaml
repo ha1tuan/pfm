@@ -1,0 +1,77 @@
+# Local infrastructure: `docker compose up -d` (from backend/) starts postgres, rabbitmq and redis.
+# `docker compose --profile app up -d` also starts api and worker once their images exist.
+name: ffm
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ffm
+      POSTGRES_USER: ffm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ffm_dev}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432" # 5433: avoids a natively installed PostgreSQL
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ffm -d ffm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ffm
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-ffm_dev}
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management UI
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    profiles: [app]
+    image: ffm/api:${FFM_TAG:-local}
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Database=ffm;Username=ffm;Password=${POSTGRES_PASSWORD:-ffm_dev}
+      ConnectionStrings__RabbitMq: amqp://ffm:${RABBITMQ_PASSWORD:-ffm_dev}@rabbitmq:5672/
+      ConnectionStrings__Redis: redis:6379
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-} # required; Api fails at start without it
+    ports:
+      - "5080:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    profiles: [app]
+    image: ffm/worker:${FFM_TAG:-local}
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Database=ffm;Username=ffm;Password=${POSTGRES_PASSWORD:-ffm_dev}
+      ConnectionStrings__RabbitMq: amqp://ffm:${RABBITMQ_PASSWORD:-ffm_dev}@rabbitmq:5672/
+      ConnectionStrings__Redis: redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  postgres-data:
+  rabbitmq-data:

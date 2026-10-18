@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="NetArchTest.Rules" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\FFM.Api\FFM.Api.csproj" />
+    <ProjectReference Include="..\..\src\FFM.Worker\FFM.Worker.csproj" />
+  </ItemGroup>
+</Project>

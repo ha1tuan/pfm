@@ -69,6 +69,10 @@ Quy tắc:
 ```
 backend/
 ├── FFM.sln
+├── global.json                          # pin SDK .NET 10, bật Microsoft.Testing.Platform cho `dotnet test`
+├── Directory.Build.props                # net10.0, nullable, implicit usings
+├── Directory.Packages.props             # version mọi package (central package management)
+├── compose.yaml                         # infra mặc định; profile `app` thêm api + worker
 ├── src/
 │   ├── FFM.Api/                         # Host HTTP: Program.cs, auth, OpenAPI, exception handler
 │   ├── FFM.Worker/                      # Host nền: outbox publisher, consumers, jobs
@@ -93,6 +97,8 @@ backend/
 │       └── Admin/ …
 └── tests/
     ├── FFM.ArchitectureTests/           # NetArchTest: quy tắc tầng và ranh giới module
+    ├── FFM.BuildingBlocks.Tests/        # Result → ProblemDetails, pipeline lỗi, validation filter (TestServer)
+    ├── FFM.Api.IntegrationTests/        # Api thật trên Testcontainers PostgreSQL, RabbitMQ, Redis
     ├── FFM.Modules.Transfer.Tests/      # unit (Domain, Application) + integration (Testcontainers)
     └── …
 ```
@@ -103,6 +109,8 @@ Quy tắc tham chiếu project:
 - `*.Contracts` chỉ được tham chiếu `FFM.BuildingBlocks`. Không chứa EF hay logic.
 - `FFM.Api` và `FFM.Worker` tham chiếu mọi module và chỉ gọi `AddXxxModule()` / `MapXxxEndpoints()`.
 - Kiểm bằng NetArchTest: `Domain` không phụ thuộc `Microsoft.EntityFrameworkCore`, `Application`, `Infrastructure`. Không type nào của module này trỏ vào phần internal của module khác.
+- `*.Contracts` không tham chiếu assembly `FFM.*` nào ngoài `FFM.BuildingBlocks`, không tham chiếu EF Core.
+- Project `FFM.Modules.X` chỉ public đúng class `XModule`, và class đó chỉ có `AddXModule` / `MapXEndpoints`. Host không dùng type nào khác của project module.
 
 ## 4. Đăng ký module (DI)
 
@@ -231,7 +239,8 @@ public static IEndpointRouteBuilder MapTransferEndpoints(this IEndpointRouteBuil
 }
 ```
 
-- Hai policy `MobileUser` và `Staff` kiểm claim `aud`. Token của User gọi endpoint admin sẽ bị trả 401, và ngược lại.
+- Group theo audience lấy từ BuildingBlocks: `MapMobileApi()` (`/api/mobile/v1`, policy `MobileUser`), `MapAdminApi()` (`/api/admin/v1`, policy `Staff`), `MapInternalApi()` (`/api/internal/v1`, không JWT, ký HMAC). Module gọi các hàm này thay vì tự viết prefix.
+- Hai policy `MobileUser` và `Staff` kiểm claim `aud`. Thiếu hoặc sai token trả `401 invalidToken`; token hợp lệ nhưng sai audience (User gọi endpoint admin và ngược lại) trả `403 forbidden`, khớp [api.md §3](api.md#3-mã-lỗi).
 - DTO là `record`. Không bao giờ trả entity EF ra API.
 - OpenAPI sinh bằng `Microsoft.AspNetCore.OpenApi` và là nguồn để generate `packages/api-client`.
 
@@ -254,6 +263,8 @@ public readonly struct Result<T>
 - `Error.Code` chính là message key mà FE hiển thị, ví dụ `overBalance`, `overLimit`, `walletLocked`. Danh sách đầy đủ ở [api.md §3](api.md#3-mã-lỗi).
 - Extension `ToHttpResult()` map `ErrorKind` sang status code (400 / 404 / 409 / 403 / 401 / 422) và trả `ProblemDetails` có thêm `code` và `traceId`.
 - Exception bất ngờ do `IExceptionHandler` toàn cục bắt: log kèm `traceId`, trả 500 `internalError`, không lộ stack trace. Log **không bao giờ** chứa số tiền gắn với danh tính, token hay OTP.
+- Chỉ có một chỗ dựng problem: `ErrorProblem` (BuildingBlocks). `ToHttpResult()`, `ValidationFilter<T>` (`400 validationFailed` kèm `errors` theo field camelCase), exception handler và challenge/forbid của JWT đều đi qua nó. `type` có dạng `https://ffm.dev/errors/<code-kebab>`.
+- Log: Serilog, JSON compact ra stdout (`AddStructuredLogging()`), cấu hình mức log ở section `Serilog`.
 
 ## 8. Truy cập dữ liệu
 
@@ -366,7 +377,26 @@ services.AddScoped<IBankProvider>(sp => sp.GetRequiredKeyedService<IBankProvider
 }
 ```
 
-Mỗi section có một class `XxxOptions` với `const SectionName`, đăng ký bằng `AddOptions<T>().BindConfiguration(...).ValidateDataAnnotations().ValidateOnStart()`. Secret (khoá ký JWT, HMAC callback, key Data Protection) lấy từ biến môi trường hoặc AWS SSM, không nằm trong `appsettings`.
+Mỗi section có một class `XxxOptions` với `const SectionName`, đăng ký bằng `services.AddValidatedOptions<T>(SectionName)` (BuildingBlocks: `BindConfiguration` + `ValidateDataAnnotations` + `ValidateOnStart`). Secret (khoá ký JWT, HMAC callback, key Data Protection) lấy từ biến môi trường hoặc AWS SSM, không nằm trong `appsettings`.
+
+- `Jwt:SigningKey`: khoá RSA private dạng PEM, truyền qua biến môi trường `Jwt__SigningKey`. Thiếu thì Api dừng ngay lúc khởi động.
+- `appsettings.Development.json` chỉ chứa connection string trỏ vào Compose local (mật khẩu dev mặc định `ffm_dev`, không phải secret).
+
+### Chạy local
+
+```bash
+cd backend
+docker compose up -d                      # postgres (host port 5433), rabbitmq (5672, UI 15672), redis (6379)
+export Jwt__SigningKey="$(openssl genrsa 2048)"
+dotnet watch --project src/FFM.Api        # http://localhost:5080
+dotnet watch --project src/FFM.Worker
+```
+
+Postgres của Compose map ra cổng 5433 để không đụng PostgreSQL cài sẵn trên máy (đổi bằng `POSTGRES_PORT`). Profile `app` (`docker compose --profile app up -d`) đã khai báo `api` và `worker`; image của chúng có ở plan Delivery.
+
+### Health
+
+`/health/live` chỉ xác nhận process còn trả lời. `/health/ready` kiểm PostgreSQL (`SELECT 1`), RabbitMQ (mở connection) và Redis (`PING`), mỗi check timeout 3 giây; một dependency hỏng thì trả `503` với `{ status, entries: { postgres, rabbitmq, redis } }`. Health check tự viết trong BuildingBlocks, không thêm package.
 
 ## 15. Testing
 
@@ -385,3 +415,7 @@ Theo `backend/CLAUDE.md`, mọi thay đổi ở Ledger, Transfer hoặc Pricing 
 - Bank-facing: Success, Fail, Timeout, callback đến trễ, callback đến hai lần.
 
 Không dùng EF InMemory cho integration test: nó không mô phỏng được `FOR UPDATE`, transaction và constraint.
+
+- `dotnet test` chạy bằng Microsoft.Testing.Platform (xunit.v3, bật trong `global.json`). Lọc test: `dotnet test --project <proj> -- --filter-class "*Name"`.
+- `FFM.Api.IntegrationTests` dùng chung một bộ container cho cả assembly (assembly fixture). Test cần pause container nằm trong collection `PausesContainers`, chạy riêng, không song song với test khác.
+- Mỗi rule NetArchTest có thêm một test chạy rule đó trên fixture cố tình vi phạm (`tests/FFM.ArchitectureTests/Fixtures`), để chứng minh rule thật sự bắt được lỗi.

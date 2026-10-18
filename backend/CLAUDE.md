@@ -88,7 +88,7 @@ Staff actions — viewing Wallet detail included — and User security events go
 
 ## Testing
 
-xUnit + Testcontainers (PostgreSQL, RabbitMQ), NSubstitute for test doubles, NetArchTest for layer and boundary rules. Integration tests run on real PostgreSQL so `FOR UPDATE`, transactions and constraints behave as in production. Ledger, Transfer and Pricing changes ship with tests covering: idempotent replay, concurrent debits on one wallet, limit boundaries (per-transaction/day/month, per KYC Level), and fee/limit resolution by effective date.
+xUnit v3 (Microsoft.Testing.Platform, opted in via `global.json`) + Testcontainers (PostgreSQL, RabbitMQ, Redis), NSubstitute for test doubles, NetArchTest for layer and boundary rules. Integration tests run on real PostgreSQL so `FOR UPDATE`, transactions and constraints behave as in production. Ledger, Transfer and Pricing changes ship with tests covering: idempotent replay, concurrent debits on one wallet, limit boundaries (per-transaction/day/month, per KYC Level), and fee/limit resolution by effective date.
 
 ## API
 
