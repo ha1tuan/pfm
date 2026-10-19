@@ -98,7 +98,8 @@ erDiagram
 ```
 
 - Unique index một phần `bound_devices (user_id) WHERE revoked_at IS NULL` bảo đảm mỗi User chỉ có **một** Bound Device đang active.
-- Bảng ASP.NET Core Identity được map về các bảng `users` / `staff` ở trên qua hai `IdentityDbContext` riêng. Không dùng tên mặc định `AspNet*`.
+- `users` là bảng của ASP.NET Core Identity: `FfmDbContext` kế thừa `IdentityUserContext<UserIdentity, Guid>`, vẫn là **một** DbContext (ADR-0004). Ngoài các cột ở trên, Identity có thêm cột riêng (`user_name`, `normalized_user_name`, `security_stamp`, `concurrency_stamp`, `lockout_*`, `access_failed_count` …) và ba bảng `user_claims`, `user_logins`, `user_tokens` trong schema `identity`. `user_name` bằng `phone`. Không dùng tên mặc định `AspNet*`.
+- Staff không dùng Identity store, vì một Identity context chỉ có một loại TUser. Bảng `staff` tự map và hash mật khẩu bằng `PasswordHasher<Staff>`.
 
 ## 3. `wallet` — Ví và Sổ cái
 

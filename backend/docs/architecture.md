@@ -488,6 +488,7 @@ Code ở `Infrastructure/Jobs`, đăng ký trong `AddWorkerServices()`.
   "SmsOtp": { "Length": 6, "Lifetime": "00:05:00", "MaxSendPerHour": 5 },
   "BankProvider": { "Mode": "mock", "DefaultOutcome": "Success", "CallbackDelay": "00:00:04" },
   "Sms": { "Mode": "mock" },
+  "Database": { "MigrateOnStartup": false },
   "Transfer": { "QuoteLifetime": "00:05:00", "BankPaymentTimeout": "00:30:00" },
   "Messaging": { "Exchange": "ffm.events", "DeadLetterExchange": "ffm.dlx", "MaxRetries": 3 }
 }
@@ -496,7 +497,9 @@ Code ở `Infrastructure/Jobs`, đăng ký trong `AddWorkerServices()`.
 Mỗi section có một class `XxxOptions` với `const SectionName`, đăng ký bằng `services.AddValidatedOptions<T>(SectionName)` (`Infrastructure/DependencyInjection`: `BindConfiguration` + `ValidateDataAnnotations` + `ValidateOnStart`). Options của Api (vd `JwtOptions`) nằm ở Api; options của adapter nằm cạnh adapter trong Infrastructure. Secret (khoá ký JWT, HMAC callback, key Data Protection) lấy từ biến môi trường hoặc AWS SSM, không nằm trong `appsettings`.
 
 - `Jwt:SigningKey`: khoá RSA private dạng PEM, truyền qua biến môi trường `Jwt__SigningKey`. Thiếu thì Api dừng ngay lúc khởi động.
-- `appsettings.Development.json` chỉ chứa connection string trỏ vào Compose local (mật khẩu dev mặc định `ffm_dev`, không phải secret).
+- `appsettings.Development.json` chỉ chứa connection string trỏ vào Compose local (mật khẩu dev mặc định `ffm_dev`, không phải secret) và `Database:MigrateOnStartup = true`.
+- `Database:MigrateOnStartup`: Api áp các migration còn thiếu lúc khởi động. Chỉ bật ở local và test; Worker không bao giờ migrate. Môi trường deploy chạy migration như một bước riêng.
+- `SmsOtp` (Application, `SmsOtpOptions`): Infrastructure bind và validate, rồi đăng ký giá trị dạng singleton, vì Application không được tham chiếu `Microsoft.Extensions.Options`.
 
 ### Chạy local
 
@@ -506,6 +509,13 @@ docker compose up -d                      # postgres (host port 5433), rabbitmq 
 export Jwt__SigningKey="$(openssl genrsa 2048)"
 dotnet watch --project src/FFM.Api        # http://localhost:5080
 dotnet watch --project src/FFM.Worker
+```
+
+Thêm migration (công cụ `dotnet-ef` nằm trong tool manifest `backend/dotnet-tools.json`; lệnh này không kết nối DB):
+
+```bash
+dotnet tool restore
+dotnet ef migrations add <Name> --project src/FFM.Infrastructure --startup-project src/FFM.Infrastructure --output-dir Data/Migrations
 ```
 
 Postgres của Compose map ra cổng 5433 để không đụng PostgreSQL cài sẵn trên máy (đổi bằng `POSTGRES_PORT`). Profile `app` (`docker compose --profile app up -d`) đã khai báo `api` và `worker`; image của chúng có ở plan Delivery.
