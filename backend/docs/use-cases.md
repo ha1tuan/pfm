@@ -163,7 +163,7 @@ Quy tắc bổ sung:
 
 | UC | Tiền điều kiện | Kết quả chính | Ngoại lệ chính |
 |---|---|---|---|
-| UC-01 Đăng ký | SĐT chưa tồn tại | User + Bound Device + Wallet (async qua `UserRegistered`), trả token + TOTP secret | `phoneAlreadyRegistered`, `invalidSmsOtp`, `smsOtpExpired`, `tooManyAttempts` |
+| UC-01 Đăng ký | SĐT chưa tồn tại | User + Bound Device + Wallet (async qua `UserRegistered`), trả token (Smart OTP đăng ký sau, ADR-0006) | `phoneAlreadyRegistered`, `invalidSmsOtp`, `smsOtpExpired`, `tooManyAttempts` |
 | UC-02 Đăng nhập | User active | Token nếu `device_id` là thiết bị đang bound | `wrongPassword`, `deviceNotBound` (chuyển sang UC-03), `tooManyAttempts` |
 | UC-03 Kích hoạt thiết bị | Đúng mật khẩu + SMS OTP | Thiết bị mới active, thiết bị cũ bị thu hồi, `DeviceRevoked` | `invalidSmsOtp` |
 | UC-04 Refresh | Token hợp lệ | Cặp token mới, token cũ bị thay | `tokenReuseDetected` (thu hồi cả family) |

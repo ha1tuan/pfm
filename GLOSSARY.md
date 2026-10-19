@@ -85,10 +85,19 @@ Số tiền Người dùng muốn tích luỹ. Chỉ dùng để theo dõi, khô
 Mã xác thực giao dịch sinh ngay trên thiết bị đã kích hoạt của Người dùng.
 
 **Thiết bị kích hoạt (Bound Device)**
-Thiết bị duy nhất của Người dùng được phép tạo Smart OTP. Kích hoạt thiết bị mới thì thiết bị cũ bị thu hồi.
+Thiết bị duy nhất của Người dùng được phép đăng nhập và Đăng ký Smart OTP. Kích hoạt thiết bị mới thì thiết bị cũ bị thu hồi, kèm Smart OTP của nó.
+
+**Đăng ký Smart OTP (Smart OTP Enrollment)**
+Bước Người dùng đặt PIN giao dịch và nhận khả năng tạo Smart OTP trên Thiết bị kích hoạt. Diễn ra lần đầu Người dùng thực hiện một Giao dịch cần Smart OTP, không phải lúc kích hoạt thiết bị.
 
 **PIN giao dịch (Transaction PIN)**
-Mã 6 số dùng để mở app và mở khoá Smart OTP. Khác với mật khẩu đăng nhập.
+Mã 6 số dùng để mở khoá Smart OTP. Đặt khi Đăng ký Smart OTP. Khác với Mật khẩu đăng nhập.
+
+**Mật khẩu đăng nhập (Login Password)**
+Bí mật Người dùng dùng cùng số điện thoại để đăng nhập và kích hoạt thiết bị. Khác với PIN giao dịch.
+
+**Phiên (Session)**
+Một lần đăng nhập còn hiệu lực của Người dùng trên Thiết bị kích hoạt. Kết thúc khi đăng xuất, hết hạn, hoặc thiết bị bị thu hồi. Mỗi thiết bị chỉ có một Phiên còn hiệu lực.
 
 **Nhật ký kiểm toán (Audit Log)**
 Bản ghi chỉ ghi thêm (append-only) về các thao tác của Nhân viên và các sự kiện bảo mật của Người dùng. Không dùng để ghi nhận biến động tiền.

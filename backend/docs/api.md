@@ -45,10 +45,9 @@ Response lệnh di chuyển tiền:
 | Method | Path | Mô tả | UC |
 |---|---|---|---|
 | POST | `/auth/register/otp` | `{ phone }` → `{ challengeId, expiresAt }`. Gửi SMS OTP | UC-01 |
-| POST | `/auth/register` | `{ challengeId, otp, password, fullName, device: { deviceId, model, os } }` → `{ accessToken, refreshToken, totpSecret, user }` | UC-01 |
-| POST | `/auth/login` | `{ phone, password, deviceId }` → tokens, hoặc `403 deviceNotBound` | UC-02 |
-| POST | `/auth/device-binding/otp` | `{ phone, password, deviceId }` → `{ challengeId }` | UC-03 |
-| POST | `/auth/device-binding` | `{ challengeId, otp, device }` → `{ accessToken, refreshToken, totpSecret }` | UC-03 |
+| POST | `/auth/register` | `{ challengeId, otp, password, fullName, device: { deviceId, model, os } }` → `{ accessToken, refreshToken, user }` | UC-01 |
+| POST | `/auth/login` | `{ phone, password, deviceId }` → tokens, hoặc `403 deviceNotBound` kèm `extensions: { challengeId, expiresAt }` (đã gửi SMS OTP kích hoạt thiết bị) | UC-02 |
+| POST | `/auth/device-binding` | `{ challengeId, otp, device }` → `{ accessToken, refreshToken }` | UC-03 |
 | POST | `/auth/refresh` | `{ refreshToken }` → cặp token mới | UC-04 |
 | POST | `/auth/logout` | Revoke family hiện tại | UC-05 |
 | GET | `/me` | `{ id, fullName, phone, kycLevel, device }` | — |
@@ -155,7 +154,8 @@ Không có `DELETE` cho bất kỳ Config Version, Transaction, bút toán hay A
 | `invalidBankOtp` | 400 | Sai OTP ngân hàng khi liên kết |
 | `mfaRequired` / `invalidMfa` | 401 | Staff chưa qua hoặc sai TOTP 2FA |
 | `forbidden` | 403 | Sai audience hoặc role |
-| `deviceNotBound` | 403 | Đăng nhập từ thiết bị chưa kích hoạt |
+| `deviceNotBound` | 403 | Đăng nhập từ thiết bị chưa kích hoạt. Mật khẩu đã đúng; SMS OTP kích hoạt đã được gửi |
+| `userDisabled` | 403 | Mật khẩu đúng nhưng User ở trạng thái `disabled` |
 | `makerCannotApprove` | 403 | Checker trùng maker |
 | `notFound`, `recipientNotFound`, `linkedBankAccountNotFound` | 404 | — |
 | `phoneAlreadyRegistered`, `accountAlreadyLinked` | 409 | — |
@@ -193,7 +193,7 @@ Ký hiệu: **C** = command handler, **Q** = query handler (cả hai ở `Applic
 
 | Loại | Tên |
 |---|---|
-| C | `RequestRegistrationOtp`, `RegisterUser`, `LoginUser`, `RequestDeviceBindingOtp`, `BindDevice`, `RefreshToken`, `Logout`, `LoginStaff`, `VerifyStaffMfa` |
+| C | `RequestRegistrationOtp`, `RegisterUser`, `LoginUser`, `BindDevice`, `RefreshToken`, `Logout`, `LoginStaff`, `VerifyStaffMfa` |
 | Q | `GetCurrentUser`, `GetCurrentStaff` |
 | I | `ISmartOtpVerifier.VerifyAsync(userId, deviceId, code, ct) → Result` |
 | | `IUserDirectory.GetAsync(userId)`, `FindByPhoneAsync(phone) → UserSummary { id, fullName, phone, kycLevel, status }` |

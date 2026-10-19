@@ -25,15 +25,14 @@ flowchart TD
     subgraph APP["📱 Mobile app"]
         S(["Bắt đầu"]) --> A1["Nhập SĐT"]
         A3["Nhập SMS OTP, mật khẩu, họ tên"]
-        A5["Đặt Transaction PIN (local)<br/>mã hoá TOTP secret bằng PIN<br/>lưu secure-store"]
-        A5 --> E(["Vào Wallet home"])
+        E(["Lưu token vào secure-store<br/>vào Wallet home"])
     end
     subgraph ID["Identity"]
         I1{"SĐT đã đăng ký?"}
         I2{"Rate-limit gửi SMS OK?"}
         I3["Tạo sms_otp_challenge<br/>purpose=register"]
         I4{"OTP đúng và còn hạn?"}
-        I5["[DB tx] Tạo users (kyc_level=1)<br/>bound_devices + TOTP secret<br/>refresh token family<br/>audit deviceBound<br/>outbox UserRegistered"]
+        I5["[DB tx] Tạo users (kyc_level=1)<br/>bound_devices (chưa Đăng ký Smart OTP)<br/>refresh token family<br/>audit deviceBound<br/>outbox UserRegistered"]
         IE1["409 phoneAlreadyRegistered"]
         IE2["429 tooManyAttempts"]
         IE3["400 invalidSmsOtp<br/>attempts++"]
@@ -54,7 +53,7 @@ flowchart TD
     A3 --> I4
     I4 -- sai --> IE3 --> A3
     I4 -- đúng --> I5
-    I5 -- "201: tokens + totpSecret" --> A5
+    I5 -- "201: tokens" --> E
     I5 -. event .-> W1 --> W2
 ```
 
@@ -67,7 +66,6 @@ flowchart TD
     subgraph APP["📱 Mobile app"]
         S(["Bắt đầu"]) --> A1["Nhập SĐT + mật khẩu<br/>gửi kèm device_id"]
         A2["Nhập SMS OTP"]
-        A3["Đặt PIN, lưu TOTP secret mới"]
         A4(["Vào Wallet home"])
     end
     subgraph ID["Identity"]
@@ -75,10 +73,10 @@ flowchart TD
         I2{"Mật khẩu đúng?"}
         I3{"device_id = thiết bị đang bound?"}
         I4["Cấp access + refresh token<br/>cập nhật last_login_at"]
-        I5["403 deviceNotBound"]
-        I6["Tạo sms_otp_challenge<br/>purpose=deviceBinding"]
+        I5["403 deviceNotBound<br/>+ challengeId, expiresAt"]
+        I6["Rate-limit gửi SMS (chung với đăng ký)<br/>tạo sms_otp_challenge<br/>purpose=deviceBinding"]
         I7{"OTP đúng?"}
-        I8["[DB tx] Thu hồi thiết bị cũ (revoked_at)<br/>revoke refresh token của thiết bị cũ<br/>tạo bound_devices mới + TOTP secret<br/>audit deviceBound + deviceRevoked<br/>outbox DeviceRevoked"]
+        I8["[DB tx] Thu hồi thiết bị cũ (revoked_at)<br/>revoke refresh token của thiết bị cũ<br/>Redis revoked-device:{deviceId cũ}<br/>tạo bound_devices mới (chưa Đăng ký Smart OTP)<br/>refresh token family mới<br/>audit deviceBound + deviceRevoked<br/>outbox DeviceRevoked"]
         IE1["429 tooManyAttempts"]
         IE2["401 wrongPassword<br/>counter++"]
     end
@@ -92,10 +90,13 @@ flowchart TD
     I2 -- sai --> IE2
     I2 -- đúng --> I3
     I3 -- đúng --> I4 --> A4
-    I3 -- "khác / chưa có" --> I5 --> I6 --> M1 --> A2 --> I7
+    I3 -- "khác / chưa có" --> I6 --> M1
+    I6 --> I5 --> A2 --> I7
     I7 -- sai --> A2
-    I7 -- đúng --> I8 -- "tokens + totpSecret" --> A3 --> A4
+    I7 -- đúng --> I8 -- tokens --> A4
 ```
+
+Kích hoạt thiết bị không cấp TOTP secret và không bắt đặt PIN. Smart OTP được đăng ký lần đầu User cần nó cho một lệnh tiền (ADR-0006). Sai SMS OTP 5 lần thì challenge chết; User đăng nhập lại để nhận mã mới.
 
 Thiết bị cũ ở request kế tiếp sẽ nhận `401 deviceRevoked`. App xoá secure-store và đưa User về màn kích hoạt lại (`apps/mobile/CLAUDE.md`).
 

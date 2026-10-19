@@ -31,7 +31,7 @@ Các quyết định đã chốt khi lập tài liệu. Những cái khó đảo
 | D11 | Dashboard admin đọc bảng thống kê riêng (`admin.*`), cập nhật qua integration event. |
 | D12 | Phí và Hạn mức luôn resolve theo `effective_from`. Job trong Worker chỉ cập nhật status để hiển thị. |
 | D13 | Redis chỉ dùng cho rate-limit, thu hồi token và chống dùng lại OTP. Không cache số dư, không đếm hạn mức trên Redis. |
-| D14 | Transaction PIN chỉ nằm trên thiết bị. Server chỉ kiểm Smart OTP (TOTP) với Bound Device. |
+| D14 | Transaction PIN được đặt khi Đăng ký Smart OTP; server lưu dạng băm. Smart OTP (TOTP) chỉ kiểm với Bound Device. Xem ADR-0006. |
 | D15 | Mock provider (Bank, SMS) là keyed service, chọn qua `IOptions`, giả lập được Success / Fail / Timeout / DelayedCallback. |
 | D16 | KYC chỉ có cột `kyc_level` (1 hoặc 2). Luồng nâng cấp KYC nằm ngoài MVP. |
 | D17 | Staff được seed sẵn, đăng nhập bằng mật khẩu và TOTP 2FA bắt buộc. Không có API quản lý Staff trong MVP. |

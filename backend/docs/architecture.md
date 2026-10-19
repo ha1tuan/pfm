@@ -460,7 +460,7 @@ Hiện thực ở `Infrastructure/Caching`, sau các interface ở `Application/
 - **Refresh token**: chuỗi ngẫu nhiên, DB chỉ lưu SHA-256 của nó. Mỗi lần refresh cấp token mới và đánh dấu token cũ `replaced_by`. Nếu một token đã bị thay mà lại được dùng, toàn bộ family bị thu hồi và ghi Audit.
 - **Bound Device**: mỗi User chỉ có một thiết bị đang active. Kích hoạt thiết bị mới thì thiết bị cũ bị thu hồi, refresh token của thiết bị cũ bị revoke, và phát event `DeviceRevoked`. Request mang `device_id` đã bị thu hồi nhận `401 deviceRevoked`.
 - **Smart OTP**: TOTP (RFC 6238, 30 giây, 6 số, cho lệch ±1 bước). Secret mã hoá lúc lưu bằng ASP.NET Data Protection. Chỉ kiểm với thiết bị đang bound.
-- **Transaction PIN** (D14): chỉ nằm trên thiết bị, dùng để mở khoá secret Smart OTP. Server không lưu và không nhận PIN. Rủi ro máy root được chấp nhận ở mức demo; hướng giảm thiểu sau này là Play Integrity / App Attest.
+- **Transaction PIN** (D14, ADR-0006): đặt khi Đăng ký Smart OTP, dùng để mở khoá secret Smart OTP. Server lưu PIN dạng băm (ASP.NET Identity hasher), không lưu bản rõ. Rủi ro máy root được chấp nhận ở mức demo; hướng giảm thiểu sau này là Play Integrity / App Attest.
 - **Staff**: đăng nhập bằng mật khẩu (ASP.NET Identity hasher) kèm TOTP 2FA bắt buộc. Phân quyền theo role ở mọi endpoint. Ma trận quyền ở [use-cases.md](use-cases.md#4-ma-trận-quyền-staff).
 - **Audit**: thao tác của Staff (kể cả *xem* dữ liệu cá nhân) và sự kiện bảo mật của User đi qua `IAuditWriter`, trong cùng DB transaction với use case. Vì vậy những use case này luôn là handler, không phải service CRUD.
 - **Dữ liệu nhạy cảm**: số tài khoản ngân hàng mã hoá lúc lưu, chỉ trả bản mask. Log dùng structured logging, có bộ lọc che `phone`, `accountNumber`, `token`, `otp`.
