@@ -10,5 +10,8 @@ export default defineConfig({
   css: {
     modules: { localsConvention: 'camelCaseOnly' },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: { '/api': process.env.FFM_API_URL ?? 'http://localhost:5080' },
+  },
 });

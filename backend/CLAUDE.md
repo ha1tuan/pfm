@@ -88,8 +88,8 @@ Bank and SMS sit behind `IBankProvider` / `ISmsSender` in `Application/Interface
 
 - ASP.NET Core Identity + JWT: short-lived access token, rotating refresh token (reuse of a rotated token revokes the family).
 - Two separate audiences: `mobile` (User) and `admin` (Staff). An admin endpoint rejects a User token and vice versa.
-- Smart OTP: TOTP secret issued at device binding, one Bound Device per User; verifying a transfer checks the code against the currently bound device only.
-- Transaction PIN stays on the device (it unlocks the Smart OTP secret); the server stores and receives no PIN.
+- Smart OTP: TOTP secret issued at Smart OTP Enrollment (the first Transaction that needs it), not at device binding (ADR-0006); one Bound Device per User; verifying a transfer checks the code against the currently bound device only.
+- Transaction PIN is set at Smart OTP Enrollment and unlocks the Smart OTP secret; the server stores it hashed only (ADR-0006).
 - Staff: seeded accounts, password + mandatory TOTP 2FA. Authorization is role-based (Admin, Operations, Control/CS) and enforced server-side on every endpoint; role matrix in `docs/use-cases.md` §4.
 - Rate-limit OTP verification and login attempts via Redis.
 

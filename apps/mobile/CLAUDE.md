@@ -28,5 +28,6 @@ Expo Router (file-based routes under `app/`, screens' building blocks in `src/fe
 ## Running and checking
 
 - `corepack pnpm mobile` from the repo root; `w` opens the web build, which is how screens get checked at 390pt without a device.
+- Backend URL: `EXPO_PUBLIC_API_URL` if set (see `.env.example`); otherwise the host Expo serves from, port 5080 (`localhost` on web). A phone or emulator needs the backend on the LAN: run it with the `FFM.Api (LAN)` launch profile. Expo web calls the API cross-origin; Development CORS allows `http://localhost:8081`.
 - Mock behaviour: any password of 6+ characters signs in; any 6-digit PIN authorizes; any 6-digit bank OTP links a bank. Bank Transfers and Withdrawals stay `Processing` for ~4 s, then settle.
 - `expo-secure-store` and biometrics are native-only; on web the session lives in memory and the biometric button is hidden.

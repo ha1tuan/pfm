@@ -336,7 +336,8 @@ mobile.MapDelete("/manual-entries/{id:guid}", async (
 - Hai policy `MobileUser` và `Staff` kiểm claim `aud` (giá trị lấy từ `AudienceGroups.MobileAudience` / `AdminAudience`, dùng chung cho Identity khi phát token). Thiếu hoặc sai token trả `401 invalidToken`; token hợp lệ nhưng sai audience (User gọi endpoint admin và ngược lại) trả `403 forbidden`, khớp [api.md §3](api.md#3-mã-lỗi).
 - Endpoint chỉ dùng type của `FFM.Application` (handler, service, DTO). Không gọi repository hay DbContext trực tiếp.
 - DTO là `record` trong `Application/DTOs/<Feature>/`. Không bao giờ trả entity ra API.
-- OpenAPI sinh bằng `Microsoft.AspNetCore.OpenApi` và là nguồn để generate `packages/api-client`.
+- OpenAPI sinh bằng `Microsoft.AspNetCore.OpenApi` và là nguồn để generate `packages/api-client`. `dotnet build` của `FFM.Api` ghi `packages/api-client/openapi/ffm-api.json` (Microsoft.Extensions.ApiDescription.Server, chạy entry point với cấu hình giả, không mở kết nối). Endpoint khai báo `Produces<T>()` và `ProducesProblem(...)` để client có type cho response. Schema ProblemDetails có thêm `code` và `traceId`. `/openapi/v1.json` chỉ map ở Development.
+- CORS chỉ bật cho origin trong `Cors:AllowedOrigins`, mà chỉ `appsettings.Development.json` khai báo (Expo web). Admin console đi qua proxy của Vite, app native không gửi Origin.
 
 ## 7. Result và xử lý lỗi
 

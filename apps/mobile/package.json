@@ -14,6 +14,7 @@
     "@expo-google-fonts/be-vietnam-pro": "^0.4.1",
     "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo/metro-runtime": "~57.0.17",
+    "@ffm/api-client": "workspace:*",
     "@hookform/resolvers": "^5.9.1",
     "@tanstack/react-query": "^5.104.2",
     "expo": "^57.0.29",

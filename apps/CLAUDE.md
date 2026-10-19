@@ -3,7 +3,7 @@
 Applies to `mobile/` and `admin/`; each has its own `CLAUDE.md` for app-specific rules.
 
 - TypeScript strict. All HTTP goes through `packages/api-client`; types come from it, not hand-written duplicates.
-- Until the backend exists, each app's `src/api/queries.ts` hooks call an in-memory mock (`src/mocks/server.ts`) and `src/domain/types.ts` stands in for generated types. UI imports data only through `src/api/*`, so switching to the real client touches only that folder.
+- Each app's `src/api/client.ts` creates the real client from `packages/api-client`. `src/api/queries.ts` hooks still call the in-memory mock (`src/mocks/server.ts`), and `src/domain/types.ts` stands in for generated types, until the backend endpoint for that hook exists; then only the hook body switches to `api.call(api.GET|POST(...))` and the types come from `@ffm/api-client`. UI imports data only through `src/api/*`, so the switch touches only that folder.
 - Server state: TanStack Query. Local UI state: Zustand. Forms: React Hook Form + Zod.
 - The server is the source of truth for money: balances, fees and limits are displayed from API responses, never computed client-side. Amounts are integer VND; format only at render time (`1.000.000 ₫`).
 - UI copy is Vietnamese via i18n keys; no literal strings in components.

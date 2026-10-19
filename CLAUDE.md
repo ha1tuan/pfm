@@ -16,7 +16,7 @@ docs/adr/             architecture decisions
 GLOSSARY.md           domain language
 ```
 
-Package manager is pnpm via corepack (`corepack pnpm …`; `corepack enable` needs admin on this machine). Root scripts: `corepack pnpm admin` (Vite, :5173) and `corepack pnpm mobile` (Expo). Each app has `typecheck`.
+Package manager is pnpm via corepack (`corepack pnpm …`; `corepack enable` needs admin on this machine). Root scripts: `corepack pnpm admin` (Vite, :5173), `corepack pnpm mobile` (Expo) and `corepack pnpm api-client` (regenerate client types after `dotnet build backend/src/FFM.Api`). Each app has `typecheck`.
 
 ## Domain language
 

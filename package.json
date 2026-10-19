@@ -4,6 +4,7 @@
   "packageManager": "pnpm@12.11.2",
   "scripts": {
     "admin": "pnpm --filter @ffm/admin dev",
-    "mobile": "pnpm --filter @ffm/mobile start"
+    "mobile": "pnpm --filter @ffm/mobile start",
+    "api-client": "corepack pnpm --filter @ffm/api-client generate"
   }
 }

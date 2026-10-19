@@ -19,6 +19,10 @@ internal static class IdentityEndpoints
                 CancellationToken ct) =>
             (await handler.HandleAsync(body.ToCommand(), ct)).ToHttpResult())
             .WithValidation<RegistrationOtpRequest>()
+            .Produces<RegistrationOtpChallenge>()
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .AllowAnonymous();
 
         // The profile body arrives with the Identity plan; for now only the audience guard is real.
