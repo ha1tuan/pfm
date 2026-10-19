@@ -1,9 +1,4 @@
-using FFM.BuildingBlocks.Http;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-
-namespace FFM.Modules.Identity.Api;
+namespace FFM.Api.Endpoints.Identity;
 
 internal static class IdentityEndpoints
 {

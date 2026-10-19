@@ -4,6 +4,6 @@
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="..\..\src\FFM.BuildingBlocks\FFM.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\FFM.Api\FFM.Api.csproj" />
   </ItemGroup>
 </Project>

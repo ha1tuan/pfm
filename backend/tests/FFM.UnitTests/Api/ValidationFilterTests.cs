@@ -1,13 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using FFM.BuildingBlocks.Http;
+using FFM.Api.Filters;
 using FluentValidation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FFM.BuildingBlocks.Tests;
+namespace FFM.UnitTests.Api;
 
 public class ValidationFilterTests
 {

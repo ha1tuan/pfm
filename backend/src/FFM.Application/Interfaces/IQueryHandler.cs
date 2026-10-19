@@ -1,6 +1,6 @@
-using FFM.BuildingBlocks.Results;
+using FFM.Domain.Common;
 
-namespace FFM.BuildingBlocks.Application;
+namespace FFM.Application.Interfaces;
 
 /// <summary>One implementation per use case, injected straight into its endpoint (no mediator, D3).</summary>
 public interface IQueryHandler<in TQuery, TResult>

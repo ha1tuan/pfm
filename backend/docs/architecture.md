@@ -1,6 +1,6 @@
 # Kiến trúc Backend
 
-Modular monolith trên ASP.NET Core (.NET 10 LTS, pin bằng `global.json`, package quản lý tập trung qua `Directory.Packages.props`), PostgreSQL, RabbitMQ, Redis. Gồm hai process: `FFM.Api` (HTTP) và `FFM.Worker` (outbox publisher, consumer, job định kỳ). Cả hai nạp cùng các module. Xem ADR-0001, ADR-0002, ADR-0003.
+Clean Architecture trên ASP.NET Core (.NET 10 LTS, pin bằng `global.json`, package quản lý tập trung qua `Directory.Packages.props`), PostgreSQL, RabbitMQ, Redis. Code chia thành bốn project theo tầng: `FFM.Domain`, `FFM.Application`, `FFM.Infrastructure`, `FFM.Api`. Có thêm host nền `FFM.Worker` (outbox publisher, consumer, job định kỳ). Phụ thuộc chỉ hướng vào trong. Xem ADR-0001, ADR-0003, ADR-0004 (ADR-0004 thay ADR-0002).
 
 ## 1. Tổng quan
 
@@ -14,8 +14,8 @@ flowchart LR
     subgraph Host["FFM.Api (ASP.NET Core)"]
         direction TB
         EP[Minimal API endpoints<br/>/api/mobile/v1 · /api/admin/v1]
-        MOD[Modules<br/>Identity · Wallet · Transfer · BankLink<br/>Pricing · PFM · Audit · Admin]
-        EP --> MOD
+        APP[FFM.Application<br/>handler nghiệp vụ · service CRUD]
+        EP --> APP
     end
 
     subgraph WorkerHost["FFM.Worker"]
@@ -25,7 +25,7 @@ flowchart LR
         JOB[Scheduled jobs]
     end
 
-    PG[(PostgreSQL<br/>1 schema / module)]
+    PG[(PostgreSQL<br/>1 schema / feature)]
     MQ[[RabbitMQ<br/>exchange ffm.events]]
     RD[(Redis)]
     BANK[Bank provider<br/>mock]
@@ -33,36 +33,60 @@ flowchart LR
 
     M --> EP
     A --> EP
-    MOD --> PG
-    MOD --> RD
+    APP --> PG
+    APP --> RD
     PUB --> PG
     PUB --> MQ
     MQ --> CON
     CON --> PG
     CON --> BANK
     BANK -- callback --> EP
-    MOD --> SMS
+    APP --> SMS
     JOB --> PG
 ```
 
-## 2. Module
+Tầng và hướng phụ thuộc:
 
-| Module | Schema | Trách nhiệm | Phụ thuộc (qua Contracts) |
-|---|---|---|---|
-| Identity | `identity` | User, Staff, đăng ký, đăng nhập, JWT và refresh token, Bound Device, Smart OTP (TOTP), SMS OTP | Audit |
-| Wallet | `wallet` | Wallet, Sổ cái (tài khoản, journal, bút toán), số dư snapshot, Khoá Ví | Audit |
-| Transfer | `transfer` | `Transaction` và lifecycle cho Top-up, Withdrawal, P2P Transfer, Bank Transfer, Reversal; idempotency; kiểm hạn mức đã dùng | Wallet, Pricing, Identity, BankLink, Audit |
-| BankLink | `banklink` | Danh mục ngân hàng, Linked Bank Account, adapter `IBankProvider`, theo dõi các lệnh gửi ngân hàng và callback | Identity, Audit |
-| Pricing | `pricing` | Config Version của Phí và Hạn mức, maker–checker, resolve theo ngày hiệu lực | Audit |
-| PFM | `pfm` | Category, Manual Entry, gán Category cho Transaction, Budget, Goal, endpoint `/activities` | Transfer |
-| Audit | `audit` | Ghi và truy vấn Audit Log (append-only) | — |
-| Admin | `admin` | Bảng thống kê cho Dashboard, ghép dữ liệu đọc cho console | Transfer, Wallet, Identity, BankLink, Pricing, Audit |
+```mermaid
+flowchart RL
+    API[FFM.Api] --> APP[FFM.Application]
+    API --> INF[FFM.Infrastructure]
+    WRK[FFM.Worker] --> APP
+    WRK --> INF
+    INF --> APP
+    APP --> DOM[FFM.Domain]
+```
 
-Quy tắc:
+| Project | Chứa | Được tham chiếu |
+|---|---|---|
+| `FFM.Domain` | Entity, value object, quy tắc nghiệp vụ, interface repository, `Result`/`Error` | Không gì cả, chỉ BCL |
+| `FFM.Application` | Use case: handler nghiệp vụ, service CRUD, DTO, validator, interface ra ngoài (`IUnitOfWork`, `ILedgerPosting`, `IBankProvider` …) | `FFM.Domain`, FluentValidation |
+| `FFM.Infrastructure` | Hiện thực interface của Domain/Application: EF Core, Dapper, Redis, RabbitMQ, provider mock, health check, logging, job, consumer | `FFM.Application` (và qua đó `FFM.Domain`) |
+| `FFM.Api` | Endpoint, middleware, filter, auth, ánh xạ lỗi sang ProblemDetails, `Program.cs` | `FFM.Application`, `FFM.Infrastructure` (chỉ để đăng ký DI) |
+| `FFM.Worker` | `Program.cs` của host nền | `FFM.Application`, `FFM.Infrastructure` |
 
-- Module chỉ đọc/ghi schema của chính nó. Gọi sang module khác thì dùng interface trong `Contracts`, hoặc consume integration event.
-- Không JOIN xuyên schema. Thiếu dữ liệu thì gọi contract, hoặc giữ một projection riêng cập nhật từ event (PFM, Admin).
-- Module Admin không có domain riêng. Nó chỉ đọc qua contract hoặc từ bảng thống kê của chính nó (D11).
+## 2. Feature
+
+Không còn module tách project. Mỗi vùng nghiệp vụ (feature) là một **thư mục con** lặp lại trong từng tầng, ví dụ `Domain/Entities/Transfer/`, `Application/UseCases/Transfer/`, `Infrastructure/Data/Configurations/Transfer/`, `Api/Endpoints/Transfer/`.
+
+| Feature | Schema | Trách nhiệm |
+|---|---|---|
+| Identity | `identity` | User, Staff, đăng ký, đăng nhập, JWT và refresh token, Bound Device, Smart OTP (TOTP), SMS OTP |
+| Wallet | `wallet` | Wallet, Sổ cái (tài khoản, journal, bút toán), số dư snapshot, Khoá Ví |
+| Transfer | `transfer` | `Transaction` và lifecycle cho Top-up, Withdrawal, P2P Transfer, Bank Transfer, Reversal; idempotency; kiểm hạn mức đã dùng |
+| BankLink | `banklink` | Danh mục ngân hàng, Linked Bank Account, adapter `IBankProvider`, theo dõi các lệnh gửi ngân hàng và callback |
+| Pricing | `pricing` | Config Version của Phí và Hạn mức, maker–checker, resolve theo ngày hiệu lực |
+| PFM | `pfm` | Category, Manual Entry, gán Category cho Transaction, Budget, Goal, endpoint `/activities` |
+| Audit | `audit` | Ghi và truy vấn Audit Log (append-only) |
+| Admin | `admin` | Bảng thống kê cho Dashboard |
+
+Quy tắc sở hữu (là quy ước, kiểm bằng code review vì cùng nằm trong một project):
+
+- **Transfer** sở hữu `Transaction` và lifecycle của mọi loại, kể cả Reversal. Chỉ handler trong `UseCases/Transfer/` đổi trạng thái Transaction.
+- **Wallet** sở hữu Sổ cái. Bút toán chỉ được ghi qua `ILedgerPosting`; không handler nào insert `ledger_entries` trực tiếp.
+- **PFM** sở hữu việc gán Category cho Transaction (`pfm.transaction_categories`).
+- **Admin** chỉ giữ Dashboard (D11). Các màn admin khác (transactions, wallets, config, audit) là endpoint của feature sở hữu dữ liệu, gắn vào group `/api/admin/v1`.
+- Ghi dữ liệu của một feature đi qua repository/aggregate của feature đó. Truy vấn đọc (Dapper) được JOIN xuyên schema khi cần, vì giờ mọi schema thuộc cùng một codebase và một DbContext.
 
 ## 3. Cấu trúc solution
 
@@ -74,74 +98,96 @@ backend/
 ├── Directory.Packages.props             # version mọi package (central package management)
 ├── compose.yaml                         # infra mặc định; profile `app` thêm api + worker
 ├── src/
-│   ├── FFM.Api/                         # Host HTTP: Program.cs, auth, OpenAPI, exception handler
-│   ├── FFM.Worker/                      # Host nền: outbox publisher, consumers, jobs
-│   ├── FFM.BuildingBlocks/              # Result, handler abstractions, UnitOfWork, outbox/inbox,
-│   │                                    # RabbitMQ client, ProblemDetails mapping, Clock, Id
-│   └── Modules/
-│       ├── Transfer/
-│       │   ├── FFM.Modules.Transfer/            # internal
-│       │   │   ├── Domain/                      # Transaction aggregate, TransactionStatus, rules (không EF)
-│       │   │   ├── Application/                 # Commands/, Queries/, Validators/, DTOs
-│       │   │   ├── Infrastructure/              # TransferDbContext, EF configs, Dapper queries,
-│       │   │   │                                # migrations, consumers, adapters
-│       │   │   ├── Api/                         # TransferEndpoints.cs (MapGroup)
-│       │   │   └── TransferModule.cs            # AddTransferModule(), MapTransferEndpoints()
-│       │   └── FFM.Modules.Transfer.Contracts/  # public: ITransactionQuery, events, DTO dùng chung
-│       ├── Identity/ …
-│       ├── Wallet/ …
-│       ├── BankLink/ …
-│       ├── Pricing/ …
-│       ├── Pfm/ …
-│       ├── Audit/ …
-│       └── Admin/ …
+│   ├── FFM.Domain/                      # Lõi nghiệp vụ, không phụ thuộc gì
+│   │   ├── Common/                      # Result, Result<T>, Error, ErrorKind, ErrorCodes
+│   │   ├── Entities/<Feature>/          # Wallet, Transaction, ConfigVersion … (aggregate, không EF)
+│   │   ├── ValueObjects/                # Money (long VND), Period, LimitRule …
+│   │   ├── Interfaces/                  # I<Aggregate>Repository
+│   │   ├── Errors/                      # <Feature>Errors: mã lỗi nghiệp vụ (api.md §3)
+│   │   └── Exceptions/                  # Chỉ cho vi phạm bất biến = bug (vd journal lệch)
+│   ├── FFM.Application/                 # Use case
+│   │   ├── Interfaces/                  # ICommandHandler, IQueryHandler, IUnitOfWork, IIdGenerator,
+│   │   │                                # ILedgerPosting, IAuditWriter, IOutbox, IBankProvider, ISmsSender,
+│   │   │                                # I<Feature>Query (đọc), I<Name>Service (CRUD)
+│   │   ├── UseCases/<Feature>/          # Nghiệp vụ: Commands/ và Queries/, mỗi use case một handler
+│   │   ├── Services/<Feature>/          # CRUD: <Name>Service
+│   │   ├── DTOs/<Feature>/              # record trả ra API
+│   │   ├── Validators/<Feature>/        # FluentValidation cho request
+│   │   └── DependencyInjection.cs       # AddApplication()
+│   ├── FFM.Infrastructure/              # Hiện thực bên ngoài
+│   │   ├── Data/                        # FfmDbContext, Configurations/<Feature>/, Migrations/,
+│   │   │                                # Repositories/, Queries/ (Dapper), UnitOfWork, LedgerPosting
+│   │   ├── Caching/                     # Redis (rate limit, OTP replay, token family), cache Config Version
+│   │   ├── Messaging/                   # Outbox, inbox, RabbitMQ publisher và consumer
+│   │   ├── External/                    # Bank/, Sms/: adapter mock (keyed service)
+│   │   ├── Jobs/                        # Job định kỳ của Worker
+│   │   ├── Health/                      # Health check PostgreSQL, RabbitMQ, Redis
+│   │   ├── Logging/                     # Serilog
+│   │   ├── Common/                      # UuidV7Generator …
+│   │   └── DependencyInjection/         # AddInfrastructure(), AddWorkerServices(), options kết nối
+│   ├── FFM.Api/                         # Entry point HTTP
+│   │   ├── Endpoints/                   # AudienceGroups, HealthEndpoints, <Feature>/<Feature>Endpoints.cs
+│   │   ├── Middleware/                  # Exception handler toàn cục
+│   │   ├── Filters/                     # ValidationFilter<T>, WithValidation<T>()
+│   │   ├── Errors/                      # ErrorProblem, ToHttpResult()
+│   │   ├── Auth/                        # JWT, policy theo audience
+│   │   └── Program.cs
+│   └── FFM.Worker/                      # Host nền: Program.cs
 └── tests/
-    ├── FFM.ArchitectureTests/           # NetArchTest: quy tắc tầng và ranh giới module
-    ├── FFM.BuildingBlocks.Tests/        # Result → ProblemDetails, pipeline lỗi, validation filter (TestServer)
-    ├── FFM.Api.IntegrationTests/        # Api thật trên Testcontainers PostgreSQL, RabbitMQ, Redis
-    ├── FFM.Modules.Transfer.Tests/      # unit (Domain, Application) + integration (Testcontainers)
-    └── …
+    ├── FFM.UnitTests/                   # Domain/, Application/ (NSubstitute), Api/ (pipeline lỗi, filter, TestServer)
+    ├── FFM.ArchitectureTests/           # Hướng phụ thuộc giữa tầng, vị trí handler/service
+    └── FFM.Api.IntegrationTests/        # Api thật trên Testcontainers PostgreSQL, RabbitMQ, Redis
 ```
 
-Quy tắc tham chiếu project:
+Thư mục rỗng không được commit; mỗi thư mục trên xuất hiện khi có file đầu tiên.
 
-- `FFM.Modules.X` được tham chiếu `FFM.BuildingBlocks` và `FFM.Modules.Y.Contracts`. **Không được** tham chiếu `FFM.Modules.Y`.
-- `*.Contracts` chỉ được tham chiếu `FFM.BuildingBlocks`. Không chứa EF hay logic.
-- `FFM.Api` và `FFM.Worker` tham chiếu mọi module và chỉ gọi `AddXxxModule()` / `MapXxxEndpoints()`.
-- Kiểm bằng NetArchTest: `Domain` không phụ thuộc `Microsoft.EntityFrameworkCore`, `Application`, `Infrastructure`. Không type nào của module này trỏ vào phần internal của module khác.
-- `*.Contracts` không tham chiếu assembly `FFM.*` nào ngoài `FFM.BuildingBlocks`, không tham chiếu EF Core.
-- Project `FFM.Modules.X` chỉ public đúng class `XModule`, và class đó chỉ có `AddXModule` / `MapXEndpoints`. Host không dùng type nào khác của project module.
+Quy tắc tham chiếu (kiểm bằng `FFM.ArchitectureTests`):
 
-## 4. Đăng ký module (DI)
+- `FFM.Domain` chỉ tham chiếu BCL (`System.*`).
+- `FFM.Application` không tham chiếu `FFM.Infrastructure`, `FFM.Api`, `FFM.Worker`, cũng không tham chiếu ASP.NET Core, EF Core, Npgsql, Dapper, RabbitMQ, Redis, Serilog.
+- `FFM.Infrastructure` không tham chiếu `FFM.Api` hay `FFM.Worker`.
+- `FFM.Worker` không tham chiếu `FFM.Api`.
+- Class hiện thực `ICommandHandler`/`IQueryHandler` nằm dưới `FFM.Application.UseCases` và tên kết thúc bằng `Handler`. Class tên `*Service` trong Application nằm dưới `FFM.Application.Services`.
+- Type trong `FFM.Api` là `internal` (trừ `Program` và options). `FFM.UnitTests` thấy chúng qua `InternalsVisibleTo`.
 
-Mỗi module có một extension method duy nhất. Host không biết các class bên trong.
+## 4. Đăng ký DI
+
+Mỗi tầng có một extension method; host gọi chúng theo thứ tự trong `Program.cs`.
 
 ```csharp
-public static class TransferModule
+// FFM.Api/Program.cs
+builder.AddStructuredLogging();
+builder.Services.AddApplication();          // handler, service CRUD, validator
+builder.Services.AddInfrastructure();       // DbContext, repository, query, cache, provider, outbox writer
+builder.Services.AddDependencyHealthChecks();
+builder.Services.AddErrorHandling();
+builder.Services.AddJwtAuthentication();
+…
+app.MapHealthEndpoints();
+app.MapApiEndpoints();                      // gọi <Feature>Endpoints.Map của từng feature
+
+// FFM.Worker/Program.cs
+builder.AddStructuredLogging();
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure();
+builder.Services.AddWorkerServices();       // outbox publisher, consumer, job: chỉ Worker gọi
+```
+
+Consumer và job đăng ký trong `AddWorkerServices()`, nên Api không bao giờ chạy chúng.
+
+```csharp
+// FFM.Application/DependencyInjection.cs
+public static IServiceCollection AddApplication(this IServiceCollection services)
 {
-    public static IServiceCollection AddTransferModule(this IServiceCollection services, IConfiguration config)
-    {
-        services.AddDbContext<TransferDbContext>((sp, o) =>
-            o.UseNpgsql(sp.GetRequiredService<IUnitOfWork>().Connection,
-                npg => npg.MigrationsHistoryTable("__ef_migrations", "transfer")));
+    // Nghiệp vụ: mỗi use case một handler
+    services.AddScoped<ICommandHandler<SubmitP2PTransfer, TransactionDto>, SubmitP2PTransferHandler>();
+    services.AddScoped<IQueryHandler<GetTransaction, TransactionDto>, GetTransactionHandler>();
 
-        // Handlers: Scoped, mỗi use case một class
-        services.AddScoped<ICommandHandler<SubmitP2PTransfer, TransactionDto>, SubmitP2PTransferHandler>();
-        services.AddScoped<ICommandHandler<SubmitBankTransfer, TransactionDto>, SubmitBankTransferHandler>();
-        services.AddScoped<IQueryHandler<GetTransaction, TransactionDto>, GetTransactionHandler>();
+    // CRUD: một service cho một entity
+    services.AddScoped<IManualEntryService, ManualEntryService>();
 
-        // Contract công khai cho module khác
-        services.AddScoped<ITransactionQuery, TransactionQuery>();
-
-        // Consumers (chỉ chạy trong Worker)
-        services.AddConsumer<BankPaymentSettledConsumer, BankPaymentSettled>("transfer.bank-payment-settled");
-
-        services.AddValidatorsFromAssembly(typeof(TransferModule).Assembly, includeInternalTypes: true);
-        services.Configure<TransferOptions>(config.GetSection(TransferOptions.SectionName));
-        return services;
-    }
-
-    public static IEndpointRouteBuilder MapTransferEndpoints(this IEndpointRouteBuilder app) { /* xem §6 */ }
+    services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly, includeInternalTypes: true);
+    return services;
 }
 ```
 
@@ -149,15 +195,15 @@ Lifetime:
 
 | Loại | Lifetime | Lý do |
 |---|---|---|
-| DbContext, handler, contract implementation, `IUnitOfWork` | Scoped | Gắn với một request hoặc một message |
-| `IConnectionMultiplexer` (Redis), RabbitMQ connection, `IClock`, `TimeProvider` | Singleton | Tốn kém khi tạo, thread-safe |
+| `FfmDbContext`, repository, handler, service CRUD, `IUnitOfWork` | Scoped | Gắn với một request hoặc một message |
+| `NpgsqlDataSource`, `IConnectionMultiplexer` (Redis), RabbitMQ connection, `TimeProvider`, `IIdGenerator` | Singleton | Tốn kém khi tạo, thread-safe |
 | Validator (FluentValidation) | Scoped (mặc định của `AddValidatorsFromAssembly`) | — |
 | Cache Config Version đang hiệu lực | Singleton (bọc `IMemoryCache`) | Xoá khi có event `ConfigVersionActivated` |
 
-## 5. Tầng Application: handler cho mỗi use case
+## 5. Tầng Application: handler cho nghiệp vụ, service cho CRUD
 
 ```csharp
-// FFM.BuildingBlocks
+// FFM.Application/Interfaces
 public interface ICommandHandler<in TCommand, TResult>
 {
     Task<Result<TResult>> HandleAsync(TCommand command, CancellationToken ct);
@@ -168,15 +214,28 @@ public interface IQueryHandler<in TQuery, TResult>
 }
 ```
 
-- Endpoint inject đúng handler nó cần. Không dùng mediator (D3), nên F12 từ endpoint nhảy thẳng tới handler.
-- Validation request nằm ở API boundary: một endpoint filter chạy `IValidator<TRequest>` và trả `400 validationFailed`.
+Use case nào thuộc loại nào:
+
+| Dùng **handler** (`UseCases/<Feature>/Commands|Queries/`) khi use case có ít nhất một điều sau | Dùng **service** (`Services/<Feature>/`) khi |
+|---|---|
+| Đổi số dư, Transaction, Sổ cái, Khoá Ví | CRUD trên **một** entity thuộc chính User đang gọi |
+| Cần idempotency key, Smart OTP, SMS OTP, maker–checker | Không có idempotency, OTP, audit, outbox |
+| Phải ghi audit (mọi thao tác Staff, kể cả *xem*) hoặc ghi outbox | Không chạm aggregate của feature khác (đọc qua `I<Feature>Query` thì được) |
+| Chạm nhiều aggregate hoặc nhiều feature trong một DB transaction | Không có lifecycle hay state machine |
+| Có lifecycle / state machine (Transaction, Config Version, Bound Device) | |
+
+Ví dụ: P2P Transfer, Reversal, khoá Ví, duyệt Config Version, kích hoạt thiết bị, liên kết ngân hàng, gán Category cho Transaction → **handler**. Manual Entry, Budget, Goal, danh sách Category, danh mục ngân hàng, danh sách Linked Bank Account → **service**. Trường hợp không rõ thì chọn handler; danh sách đầy đủ ở [api.md §5](api.md#5-use-case-interface-và-event-theo-feature).
+
+- Endpoint inject đúng handler hoặc service nó cần. Không dùng mediator (D3), nên F12 từ endpoint nhảy thẳng tới code.
+- Handler và service đều trả `Result<T>` / `Result`; endpoint map giống nhau (§7).
+- Validation request nằm ở API boundary: `.WithValidation<TRequest>()` chạy `IValidator<TRequest>` và trả `400 validationFailed`.
 - Transaction DB, outbox và audit được gọi tường minh trong handler, không ẩn trong pipeline.
 
 Ví dụ khung của handler chuyển tiền P2P:
 
 ```csharp
 internal sealed class SubmitP2PTransferHandler(
-    IUnitOfWork uow, TransferDbContext db, IIdempotencyStore idempotency,
+    IUnitOfWork uow, ITransactionRepository transactions, IIdempotencyStore idempotency,
     ISmartOtpVerifier otp, IPricingQuery pricing, ILedgerPosting ledger,
     IAuditWriter audit, IOutbox outbox, TimeProvider clock)
     : ICommandHandler<SubmitP2PTransfer, TransactionDto>
@@ -202,82 +261,131 @@ internal sealed class SubmitP2PTransferHandler(
 }
 ```
 
-### Một DB transaction xuyên schema
-
-Mọi schema nằm trong cùng một database PostgreSQL. `IUnitOfWork` (Scoped, trong BuildingBlocks) mở **một** `NpgsqlConnection` và **một** `NpgsqlTransaction` cho mỗi scope. DbContext của tất cả module dùng chung connection đó (`UseNpgsql(connection)` + `Database.UseTransaction`).
-
-Nhờ vậy, Transfer, Wallet, Audit và outbox commit cùng nhau, mà vẫn không module nào đọc bảng của module khác. Cách này chỉ đúng khi còn là monolith. Nếu sau này tách module ra service riêng, luồng tương ứng phải chuyển sang saga dựa trên event (ADR-0002 đã dự liệu).
-
-## 6. Endpoint (Minimal API)
+Ví dụ service CRUD:
 
 ```csharp
-public static IEndpointRouteBuilder MapTransferEndpoints(this IEndpointRouteBuilder app)
+// FFM.Application/Interfaces/IManualEntryService.cs
+public interface IManualEntryService
 {
-    var mobile = app.MapGroup("/api/mobile/v1")
-        .RequireAuthorization(Policies.MobileUser)               // audience = mobile
-        .WithTags("Transfer");
+    Task<Result<ManualEntryDto>> CreateAsync(Guid userId, ManualEntryRequest request, CancellationToken ct);
+    Task<Result<ManualEntryDto>> UpdateAsync(Guid userId, Guid id, ManualEntryRequest request, CancellationToken ct);
+    Task<Result> DeleteAsync(Guid userId, Guid id, CancellationToken ct);
+}
 
-    mobile.MapPost("/p2p-transfers", async (
-            P2PTransferRequest body,
-            [FromHeader(Name = "Idempotency-Key")] Guid idempotencyKey,
-            [FromHeader(Name = "X-Smart-Otp")] string smartOtp,
-            ICommandHandler<SubmitP2PTransfer, TransactionDto> handler,
-            ICurrentUser user, CancellationToken ct) =>
-        (await handler.HandleAsync(body.ToCommand(user, idempotencyKey, smartOtp), ct))
-            .ToHttpResult(created: dto => $"/api/mobile/v1/transactions/{dto.Id}"))
-        .AddEndpointFilter<ValidationFilter<P2PTransferRequest>>()
-        .RequireRateLimiting("money-command");
-
-    var admin = app.MapGroup("/api/admin/v1")
-        .RequireAuthorization(Policies.Staff)                    // audience = admin
-        .WithTags("Transfer");
-
-    admin.MapPost("/transactions/{id:guid}/reversals", /* … */)
-        .RequireAuthorization(Policies.Roles(StaffRole.Admin, StaffRole.Operations));
-
-    return app;
+// FFM.Application/Services/Pfm/ManualEntryService.cs
+internal sealed class ManualEntryService(IManualEntryRepository entries, IIdGenerator ids, TimeProvider clock)
+    : IManualEntryService
+{
+    public async Task<Result> DeleteAsync(Guid userId, Guid id, CancellationToken ct)
+    {
+        var entry = await entries.FindAsync(userId, id, ct);
+        if (entry is null) return PfmErrors.ManualEntryNotFound;
+        entries.Remove(entry);
+        await entries.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+    // …
 }
 ```
 
-- Group theo audience lấy từ BuildingBlocks: `MapMobileApi()` (`/api/mobile/v1`, policy `MobileUser`), `MapAdminApi()` (`/api/admin/v1`, policy `Staff`), `MapInternalApi()` (`/api/internal/v1`, không JWT, ký HMAC). Module gọi các hàm này thay vì tự viết prefix.
-- Hai policy `MobileUser` và `Staff` kiểm claim `aud`. Thiếu hoặc sai token trả `401 invalidToken`; token hợp lệ nhưng sai audience (User gọi endpoint admin và ngược lại) trả `403 forbidden`, khớp [api.md §3](api.md#3-mã-lỗi).
-- DTO là `record`. Không bao giờ trả entity EF ra API.
+Service CRUD không mở `IUnitOfWork`, không ghi audit hay outbox. Khi một service cần một trong các thứ đó, use case ấy đã thành nghiệp vụ và phải chuyển sang handler.
+
+### Một DB transaction xuyên schema
+
+Mọi schema nằm trong cùng một database PostgreSQL và cùng **một** `FfmDbContext` (Infrastructure/Data). Mỗi entity map vào schema của feature bằng `ToTable("<table>", "<schema>")` trong `Configurations/<Feature>/`. `IUnitOfWork` (Scoped) bọc `FfmDbContext.Database.BeginTransactionAsync`; repository dùng chung DbContext đó, còn Dapper dùng chung connection và transaction qua `Database.GetDbConnection()` / `GetDbTransaction()`.
+
+Nhờ vậy Transfer, Wallet, Audit và outbox commit cùng nhau mà không cần cơ chế enlist nhiều DbContext.
+
+## 6. Endpoint (Minimal API)
+
+Mỗi feature có một file `Api/Endpoints/<Feature>/<Feature>Endpoints.cs` với `internal static void Map(IEndpointRouteBuilder)`; `EndpointExtensions.MapApiEndpoints()` gọi lần lượt từng file.
+
+```csharp
+internal static class TransferEndpoints
+{
+    public static void Map(IEndpointRouteBuilder app)
+    {
+        var mobile = app.MapMobileApi().WithTags("Transfer");    // /api/mobile/v1, audience = mobile
+
+        mobile.MapPost("/p2p-transfers", async (
+                P2PTransferRequest body,
+                [FromHeader(Name = "Idempotency-Key")] Guid idempotencyKey,
+                [FromHeader(Name = "X-Smart-Otp")] string smartOtp,
+                ICommandHandler<SubmitP2PTransfer, TransactionDto> handler,
+                ICurrentUser user, CancellationToken ct) =>
+            (await handler.HandleAsync(body.ToCommand(user, idempotencyKey, smartOtp), ct))
+                .ToHttpResult(dto => TypedResults.Created($"/api/mobile/v1/transactions/{dto.Id}", dto)))
+            .WithValidation<P2PTransferRequest>()
+            .RequireRateLimiting("money-command");
+
+        var admin = app.MapAdminApi().WithTags("Transfer");      // /api/admin/v1, audience = admin
+
+        admin.MapPost("/transactions/{id:guid}/reversals", /* … */)
+            .RequireAuthorization(Policies.Roles(StaffRole.Admin, StaffRole.Operations));
+    }
+}
+
+// Endpoint CRUD gọi service
+mobile.MapDelete("/manual-entries/{id:guid}", async (
+        Guid id, IManualEntryService entries, ICurrentUser user, CancellationToken ct) =>
+    (await entries.DeleteAsync(user.Id, id, ct)).ToHttpResult());   // 204 hoặc problem
+```
+
+- Group theo audience lấy từ `Api/Endpoints/AudienceGroups`: `MapMobileApi()` (`/api/mobile/v1`, policy `MobileUser`), `MapAdminApi()` (`/api/admin/v1`, policy `Staff`), `MapInternalApi()` (`/api/internal/v1`, không JWT, ký HMAC). Endpoint gọi các hàm này thay vì tự viết prefix.
+- Validation gắn bằng `.WithValidation<TRequest>()` (bọc `ValidationFilter<TRequest>` trong `Api/Filters`); validator nằm ở `Application/Validators/<Feature>/` và được `AddApplication()` đăng ký.
+- Hai policy `MobileUser` và `Staff` kiểm claim `aud` (giá trị lấy từ `AudienceGroups.MobileAudience` / `AdminAudience`, dùng chung cho Identity khi phát token). Thiếu hoặc sai token trả `401 invalidToken`; token hợp lệ nhưng sai audience (User gọi endpoint admin và ngược lại) trả `403 forbidden`, khớp [api.md §3](api.md#3-mã-lỗi).
+- Endpoint chỉ dùng type của `FFM.Application` (handler, service, DTO). Không gọi repository hay DbContext trực tiếp.
+- DTO là `record` trong `Application/DTOs/<Feature>/`. Không bao giờ trả entity ra API.
 - OpenAPI sinh bằng `Microsoft.AspNetCore.OpenApi` và là nguồn để generate `packages/api-client`.
 
 ## 7. Result và xử lý lỗi
 
 ```csharp
+// FFM.Domain/Common
 public sealed record Error(string Code, ErrorKind Kind, string? Detail = null);
-public enum ErrorKind { Validation, NotFound, Conflict, Forbidden, Unauthorized, BusinessRule }
+public enum ErrorKind { Validation, NotFound, Conflict, Forbidden, Unauthorized, BusinessRule, TooManyRequests, Unavailable }
 
-public readonly struct Result<T>
+public sealed class Result<T>                 // use case trả giá trị
 {
-    public bool IsSuccess { get; }
+    public bool IsSuccess { get; }            // [MemberNotNullWhen] cho Value / Error
+    public bool IsFailure { get; }
     public T? Value { get; }
     public Error? Error { get; }
-    public static implicit operator Result<T>(T value) => /* success */;
-    public static implicit operator Result<T>(Error error) => /* failure */;
+    public static Result<T> Success(T value);
+    public static Result<T> Failure(Error error);
+    public Result<TNew> Map<TNew>(Func<T, TNew> map);
+    public static implicit operator Result<T>(T value);
+    public static implicit operator Result<T>(Error error);
 }
+
+public sealed class Result { /* như trên, không có Value: khoá Ví, xoá Manual Entry, verify OTP */ }
 ```
 
-- `Error.Code` chính là message key mà FE hiển thị, ví dụ `overBalance`, `overLimit`, `walletLocked`. Danh sách đầy đủ ở [api.md §3](api.md#3-mã-lỗi).
-- Extension `ToHttpResult()` map `ErrorKind` sang status code (400 / 404 / 409 / 403 / 401 / 422) và trả `ProblemDetails` có thêm `code` và `traceId`.
-- Exception bất ngờ do `IExceptionHandler` toàn cục bắt: log kèm `traceId`, trả 500 `internalError`, không lộ stack trace. Log **không bao giờ** chứa số tiền gắn với danh tính, token hay OTP.
-- Chỉ có một chỗ dựng problem: `ErrorProblem` (BuildingBlocks). `ToHttpResult()`, `ValidationFilter<T>` (`400 validationFailed` kèm `errors` theo field camelCase), exception handler và challenge/forbid của JWT đều đi qua nó. `type` có dạng `https://ffm.dev/errors/<code-kebab>`.
-- Log: Serilog, JSON compact ra stdout (`AddStructuredLogging()`), cấu hình mức log ở section `Serilog`.
+- `Result` nằm ở Domain để entity cũng trả được lỗi nghiệp vụ (vd `Transaction.Succeed()` sai lifecycle trả `invalidStatusTransition`).
+- `Result` là class, không phải struct: `default` của struct sẽ vừa không thành công vừa không có `Error`, và `ToHttpResult()` sẽ ném lỗi thành 500.
+- `Error.Code` chính là message key mà FE hiển thị, ví dụ `overBalance`, `overLimit`, `walletLocked`. Danh sách đầy đủ ở [api.md §3](api.md#3-mã-lỗi). Mã của pipeline chung (`validationFailed`, `invalidToken`, `forbidden`, `notFound`, `tooManyAttempts`, `internalError`) là hằng trong `Domain/Common/ErrorCodes`. Mã của từng feature khai báo một lần trong `Domain/Errors/<Feature>Errors` (vd `TransferErrors.FeeChanged`), không viết chuỗi rời rạc trong handler.
+- `ErrorKind` map sang status: Validation 400, Unauthorized 401, Forbidden 403, NotFound 404, Conflict 409, BusinessRule 422, TooManyRequests 429, Unavailable 503.
+- Extension `ToHttpResult()` (`Api/Errors`): `Result<T>` thành công trả `200` kèm value; `ToHttpResult(onSuccess)` để endpoint tự chọn response thành công (`201 Created`, `202 Accepted` cho lệnh đi ngân hàng đang `Processing`); `Result` không giá trị trả `204`. Thất bại luôn thành `ProblemDetails` có thêm `code` và `traceId`.
+- Exception bất ngờ do `IExceptionHandler` toàn cục (`Api/Middleware`) bắt: log kèm `traceId`, trả 500 `internalError`, không lộ stack trace. Log **không bao giờ** chứa số tiền gắn với danh tính, token hay OTP.
+- Chỉ có một chỗ dựng problem: `Api/Errors/ErrorProblem`. `ToHttpResult()`, `ValidationFilter<T>` (`400 validationFailed` kèm `errors` theo field camelCase), exception handler và challenge/forbid của JWT đều đi qua nó. `type` có dạng `https://ffm.dev/errors/<code-kebab>`.
+- Log: Serilog, JSON compact ra stdout (`AddStructuredLogging()` trong `Infrastructure/Logging`), cấu hình mức log ở section `Serilog`.
 
 ## 8. Truy cập dữ liệu
 
 | Việc | Công cụ |
 |---|---|
-| Ghi, load aggregate | EF Core. Mỗi module một DbContext, `HasDefaultSchema("<module>")`, migration riêng |
-| Danh sách, lọc, báo cáo (admin), statement | Dapper với SQL tường minh, chỉ trong schema của module đó |
+| Ghi, load aggregate | EF Core qua repository. Interface `I<Aggregate>Repository` ở `Domain/Interfaces`, hiện thực ở `Infrastructure/Data/Repositories` |
+| Danh sách, lọc, báo cáo (admin), statement | Dapper với SQL tường minh. Interface `I<Feature>Query` ở `Application/Interfaces`, hiện thực ở `Infrastructure/Data/Queries` |
+| Mapping | Một `FfmDbContext`, `ApplyConfigurationsFromAssembly`, mỗi entity `ToTable(…, "<schema>")`. Một bộ migration, bảng lịch sử `public.__ef_migrations` |
 | Đọc không theo dõi thay đổi | `AsNoTracking()` |
 | Tiền | Cột `bigint`, kiểu `long` trong C#. Không bao giờ dùng `decimal` hay `double` cho số tiền |
 | Thời gian | `timestamptz`, lưu UTC. Ngày tính hạn mức và Budget theo múi giờ `Asia/Ho_Chi_Minh` |
-| Khoá chính | `uuid` (UUIDv7 sinh ở app để index có thứ tự). Mã tham chiếu đọc được cho người dùng (`reference`) để riêng |
+| Khoá chính | `uuid` (UUIDv7 sinh ở app qua `IIdGenerator` để index có thứ tự). Mã tham chiếu đọc được cho người dùng (`reference`) để riêng |
+| Connection | Một `NpgsqlDataSource` singleton cho mỗi host (pool), dựng bằng `NpgsqlDataSourceBuilder` với logger factory của host để log Npgsql đi qua Serilog |
 
-Post bút toán lên Sổ cái:
+Repository chỉ có cho aggregate cần ghi. Không viết repository generic `IRepository<T>`: mỗi interface chỉ có các method use case thật sự dùng.
+
+Post bút toán lên Sổ cái (`Infrastructure/Data/LedgerPosting`, hiện thực `ILedgerPosting`):
 
 1. `SELECT … FROM wallet.wallets WHERE id = ANY(@ids) ORDER BY id FOR UPDATE`. Lock theo thứ tự cố định để tránh deadlock.
 2. Kiểm số dư khả dụng và Khoá Ví.
@@ -289,25 +397,29 @@ Post bút toán lên Sổ cái:
 
 ```mermaid
 flowchart LR
-    H[Handler] -- cùng DB tx --> OB[(schema.outbox_messages)]
+    H[Handler] -- cùng DB tx --> OB[(messaging.outbox_messages)]
     OB --> P[Outbox publisher<br/>Worker, poll 500ms<br/>FOR UPDATE SKIP LOCKED]
     P --> X{{exchange ffm.events<br/>topic}}
     X -- transfer.transaction-succeeded --> Q1[queue pfm.transaction-succeeded]
     X -- transfer.transaction-succeeded --> Q2[queue admin.transaction-succeeded]
     X -- transfer.bank-payment-requested --> Q3[queue banklink.bank-payment-requested]
-    Q1 --> C1[Consumer] -- inbox dedupe --> DB[(schema.inbox_messages)]
+    Q1 --> C1[Consumer] -- inbox dedupe --> DB[(messaging.inbox_messages)]
     Q1 -. hết retry .-> DLX{{"ffm.dlx"}} --> DLQ["queue {queue}.dlq"]
 ```
 
-- Exchange `ffm.events` kiểu topic. Routing key có dạng `<module>.<event-kebab>`.
-- Mỗi consumer có queue riêng `<consumer-module>.<event-kebab>`, durable, publisher confirm bật, consumer ack thủ công.
+- Event dùng để tách việc chạy nền khỏi request HTTP (lệnh đi ngân hàng, thống kê Dashboard, gán Category mặc định) và để Worker xử lý, không phải để tách code.
+- Interface `IOutbox` ở `Application/Interfaces`; outbox, inbox, publisher và consumer ở `Infrastructure/Messaging`. Outbox và inbox là một cặp bảng chung trong schema `messaging`.
+- Exchange `ffm.events` kiểu topic. Routing key có dạng `<feature>.<event-kebab>`.
+- Mỗi consumer có queue riêng `<consumer-feature>.<event-kebab>`, durable, publisher confirm bật, consumer ack thủ công.
 - Retry 3 lần với backoff (5s, 30s, 2 phút) qua delay queue có TTL. Hết lượt thì message vào `<queue>.dlq` qua exchange `ffm.dlx`.
 - Inbox key là (`message_id`, `consumer`). Ghi inbox và tác động nghiệp vụ nằm trong cùng DB transaction.
 - Message envelope: `{ messageId, type, occurredAt, correlationId, causationId, payload }`. `correlationId` lấy từ `Transaction.Id` để trace xuyên suốt.
 
-Danh sách event: xem [api.md §5](api.md#5-service-contract-và-event-theo-module).
+Danh sách event: xem [api.md §5](api.md#5-use-case-interface-và-event-theo-feature).
 
 ## 10. Provider ngoài (mock)
+
+Interface (`IBankProvider`, `ISmsSender`) ở `Application/Interfaces`; adapter mock ở `Infrastructure/External/Bank/` và `Infrastructure/External/Sms/`.
 
 ```csharp
 public sealed class BankProviderOptions
@@ -332,6 +444,8 @@ services.AddScoped<IBankProvider>(sp => sp.GetRequiredKeyedService<IBankProvider
 
 ## 11. Cache và Redis (D13)
 
+Hiện thực ở `Infrastructure/Caching`, sau các interface ở `Application/Interfaces` (`IRateLimiter`, `IOtpReplayGuard`, `IRevokedTokenFamilies`, `IConfigVersionCache`).
+
 | Dữ liệu | Nơi lưu | Ghi chú |
 |---|---|---|
 | Rate-limit login, SMS OTP, Smart OTP | Redis (`INCR` + `EXPIRE`) | Key `rl:{scope}:{subject}`. Sai Smart OTP 5 lần thì khoá 15 phút |
@@ -342,20 +456,22 @@ services.AddScoped<IBankProvider>(sp => sp.GetRequiredKeyedService<IBankProvider
 
 ## 12. Bảo mật
 
-- **JWT**: access token sống 10 phút. Claim gồm `sub`, `aud` (`mobile` / `admin`), `role` (Staff), `device_id` (User). Ký bằng khoá bất đối xứng (RS256 hoặc ES256).
+- **JWT**: access token sống 10 phút. Claim gồm `sub`, `aud` (`mobile` / `admin`), `role` (Staff), `device_id` (User). Ký bằng RSA, thuật toán chốt cứng `RS256` (`ValidAlgorithms`), token ký bằng thuật toán khác bị từ chối. Mỗi token mang đúng một `aud`. `ClockSkew` 30 giây (`Jwt:ClockSkew`), thay cho mặc định 5 phút vốn quá rộng với token sống 10 phút.
 - **Refresh token**: chuỗi ngẫu nhiên, DB chỉ lưu SHA-256 của nó. Mỗi lần refresh cấp token mới và đánh dấu token cũ `replaced_by`. Nếu một token đã bị thay mà lại được dùng, toàn bộ family bị thu hồi và ghi Audit.
 - **Bound Device**: mỗi User chỉ có một thiết bị đang active. Kích hoạt thiết bị mới thì thiết bị cũ bị thu hồi, refresh token của thiết bị cũ bị revoke, và phát event `DeviceRevoked`. Request mang `device_id` đã bị thu hồi nhận `401 deviceRevoked`.
 - **Smart OTP**: TOTP (RFC 6238, 30 giây, 6 số, cho lệch ±1 bước). Secret mã hoá lúc lưu bằng ASP.NET Data Protection. Chỉ kiểm với thiết bị đang bound.
 - **Transaction PIN** (D14): chỉ nằm trên thiết bị, dùng để mở khoá secret Smart OTP. Server không lưu và không nhận PIN. Rủi ro máy root được chấp nhận ở mức demo; hướng giảm thiểu sau này là Play Integrity / App Attest.
 - **Staff**: đăng nhập bằng mật khẩu (ASP.NET Identity hasher) kèm TOTP 2FA bắt buộc. Phân quyền theo role ở mọi endpoint. Ma trận quyền ở [use-cases.md](use-cases.md#4-ma-trận-quyền-staff).
-- **Audit**: thao tác của Staff (kể cả *xem* dữ liệu cá nhân) và sự kiện bảo mật của User đi qua `IAuditWriter`, trong cùng DB transaction với use case.
+- **Audit**: thao tác của Staff (kể cả *xem* dữ liệu cá nhân) và sự kiện bảo mật của User đi qua `IAuditWriter`, trong cùng DB transaction với use case. Vì vậy những use case này luôn là handler, không phải service CRUD.
 - **Dữ liệu nhạy cảm**: số tài khoản ngân hàng mã hoá lúc lưu, chỉ trả bản mask. Log dùng structured logging, có bộ lọc che `phone`, `accountNumber`, `token`, `otp`.
 
 ## 13. Job trong Worker
 
+Code ở `Infrastructure/Jobs`, đăng ký trong `AddWorkerServices()`.
+
 | Job | Chu kỳ | Việc |
 |---|---|---|
-| `OutboxPublisher` | 500 ms | Publish outbox của từng schema, đánh dấu `published_at` |
+| `OutboxPublisher` | 500 ms | Publish `messaging.outbox_messages`, đánh dấu `published_at` |
 | `BankPaymentTimeoutSweeper` | 1 phút | Lệnh gửi ngân hàng ở `Pending` quá 5 phút: hỏi lại trạng thái, quá 30 phút thì đánh `Failed` |
 | `ConfigVersionStatusJob` | 1 phút | Đổi `Approved → Active` và bản cũ `→ Superseded` khi tới `effective_from`, phát `ConfigVersionActivated` (D12) |
 | `IdempotencyKeyCleanup` | hằng ngày | Xoá key quá 30 ngày |
@@ -367,7 +483,7 @@ services.AddScoped<IBankProvider>(sp => sp.GetRequiredKeyedService<IBankProvider
 ```json
 {
   "ConnectionStrings": { "Postgres": "…", "Redis": "…", "RabbitMq": "amqp://…" },
-  "Jwt": { "Issuer": "ffm", "AccessTokenLifetime": "00:10:00", "RefreshTokenLifetime": "30.00:00:00" },
+  "Jwt": { "Issuer": "ffm", "ClockSkew": "00:00:30", "AccessTokenLifetime": "00:10:00", "RefreshTokenLifetime": "30.00:00:00" },
   "SmartOtp": { "StepSeconds": 30, "AllowedDriftSteps": 1, "MaxFailedAttempts": 5, "LockoutDuration": "00:15:00" },
   "SmsOtp": { "Length": 6, "Lifetime": "00:05:00", "MaxSendPerHour": 5 },
   "BankProvider": { "Mode": "mock", "DefaultOutcome": "Success", "CallbackDelay": "00:00:04" },
@@ -377,7 +493,7 @@ services.AddScoped<IBankProvider>(sp => sp.GetRequiredKeyedService<IBankProvider
 }
 ```
 
-Mỗi section có một class `XxxOptions` với `const SectionName`, đăng ký bằng `services.AddValidatedOptions<T>(SectionName)` (BuildingBlocks: `BindConfiguration` + `ValidateDataAnnotations` + `ValidateOnStart`). Secret (khoá ký JWT, HMAC callback, key Data Protection) lấy từ biến môi trường hoặc AWS SSM, không nằm trong `appsettings`.
+Mỗi section có một class `XxxOptions` với `const SectionName`, đăng ký bằng `services.AddValidatedOptions<T>(SectionName)` (`Infrastructure/DependencyInjection`: `BindConfiguration` + `ValidateDataAnnotations` + `ValidateOnStart`). Options của Api (vd `JwtOptions`) nằm ở Api; options của adapter nằm cạnh adapter trong Infrastructure. Secret (khoá ký JWT, HMAC callback, key Data Protection) lấy từ biến môi trường hoặc AWS SSM, không nằm trong `appsettings`.
 
 - `Jwt:SigningKey`: khoá RSA private dạng PEM, truyền qua biến môi trường `Jwt__SigningKey`. Thiếu thì Api dừng ngay lúc khởi động.
 - `appsettings.Development.json` chỉ chứa connection string trỏ vào Compose local (mật khẩu dev mặc định `ffm_dev`, không phải secret).
@@ -396,15 +512,15 @@ Postgres của Compose map ra cổng 5433 để không đụng PostgreSQL cài s
 
 ### Health
 
-`/health/live` chỉ xác nhận process còn trả lời. `/health/ready` kiểm PostgreSQL (`SELECT 1`), RabbitMQ (mở connection) và Redis (`PING`), mỗi check timeout 3 giây; một dependency hỏng thì trả `503` với `{ status, entries: { postgres, rabbitmq, redis } }`. Health check tự viết trong BuildingBlocks, không thêm package.
+`/health/live` chỉ xác nhận process còn trả lời. `/health/ready` kiểm PostgreSQL (`SELECT 1`), RabbitMQ (mở connection) và Redis (`PING`), mỗi check timeout 3 giây; một dependency hỏng thì trả `503` với `{ status, entries: { postgres, rabbitmq, redis } }`. Check tự viết trong `Infrastructure/Health` (đăng ký bằng `AddDependencyHealthChecks()`), endpoint ở `Api/Endpoints/HealthEndpoints`, không thêm package.
 
 ## 15. Testing
 
 | Loại | Công cụ | Phạm vi |
 |---|---|---|
-| Unit | xUnit + NSubstitute | Domain (lifecycle Transaction, tính Phí, Hạn mức, journal cân bằng), handler với các contract được mock |
-| Integration | xUnit + Testcontainers (PostgreSQL, RabbitMQ) + `WebApplicationFactory` | Endpoint đến DB thật, outbox đến consumer |
-| Architecture | NetArchTest | Quy tắc tầng, ranh giới module, `internal` |
+| Unit | xUnit + NSubstitute (`FFM.UnitTests`) | `Domain/`: lifecycle Transaction, tính Phí, Hạn mức, journal cân bằng, `Result`. `Application/`: handler và service với repository/interface được mock. `Api/`: pipeline lỗi, filter (TestServer) |
+| Integration | xUnit + Testcontainers (PostgreSQL, RabbitMQ, Redis) + `WebApplicationFactory` (`FFM.Api.IntegrationTests`) | Endpoint đến DB thật, outbox đến consumer |
+| Architecture | NetArchTest + kiểm reference assembly (`FFM.ArchitectureTests`) | Hướng phụ thuộc giữa tầng (§3), handler nằm ở `UseCases`, service nằm ở `Services` |
 
 Theo `backend/CLAUDE.md`, mọi thay đổi ở Ledger, Transfer hoặc Pricing phải kèm test cho các trường hợp sau:
 
@@ -418,4 +534,20 @@ Không dùng EF InMemory cho integration test: nó không mô phỏng được `
 
 - `dotnet test` chạy bằng Microsoft.Testing.Platform (xunit.v3, bật trong `global.json`). Lọc test: `dotnet test --project <proj> -- --filter-class "*Name"`.
 - `FFM.Api.IntegrationTests` dùng chung một bộ container cho cả assembly (assembly fixture). Test cần pause container nằm trong collection `PausesContainers`, chạy riêng, không song song với test khác.
-- Mỗi rule NetArchTest có thêm một test chạy rule đó trên fixture cố tình vi phạm (`tests/FFM.ArchitectureTests/Fixtures`), để chứng minh rule thật sự bắt được lỗi.
+- Mỗi rule kiến trúc có thêm một test chạy rule đó trên fixture cố tình vi phạm (`tests/FFM.ArchitectureTests/Fixtures`), để chứng minh rule thật sự bắt được lỗi.
+
+## 16. Pattern .NET chung: phần không áp dụng
+
+Kiến trúc theo template Clean Architecture (ADR-0004), nhưng vài gợi ý đi kèm template mâu thuẫn với quy tắc tiền và quyết định khác của dự án. Chúng **không** được dùng, đừng đưa vào lại:
+
+| Gợi ý chung | Ở đây | Lý do |
+|---|---|---|
+| Mọi use case là `XxxService` | Handler cho nghiệp vụ, service chỉ cho CRUD (§5) | Lệnh tiền có thứ tự kiểm bắt buộc; một file một lệnh để review được. Service gom nhiều lệnh sẽ phình to và khó test |
+| `Result` mang chuỗi lỗi tự do | `Error(Code, Kind)` | `Code` là message key FE hiển thị, phải khớp [api.md §3](api.md#3-mã-lỗi) |
+| Repository generic `IRepository<T>` | Repository riêng cho từng aggregate, chỉ có method dùng thật | Interface generic lộ mọi thao tác, kể cả update/delete trên Sổ cái append-only |
+| EF InMemory / thay Redis bằng memory cache trong integration test | Testcontainers PostgreSQL, RabbitMQ, Redis thật | InMemory không có `FOR UPDATE`, transaction, constraint (§15) |
+| Moq | NSubstitute | `backend/CLAUDE.md` |
+| Cache nhiều tầng cho dữ liệu domain | Chỉ những gì ở §11 | Số dư và hạn mức đã dùng luôn đọc từ DB trong lock Wallet |
+| `ConfigureAwait(false)` khắp nơi | Không dùng | ASP.NET Core và Worker không có `SynchronizationContext`; thêm vào chỉ gây nhiễu |
+| Validator đăng ký Transient | Scoped (mặc định của `AddValidatorsFromAssembly`) | Không có lợi ích, giữ mặc định của thư viện |
+| Controller | Minimal API | D2 |

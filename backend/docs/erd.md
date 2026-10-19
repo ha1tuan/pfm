@@ -1,10 +1,10 @@
 # ERD — Mô hình dữ liệu
 
-PostgreSQL, mỗi module một schema (ADR-0002). Quy ước chung:
+PostgreSQL, mỗi feature một schema, tất cả map trong một `FfmDbContext` (ADR-0004). Quy ước chung:
 
 - Khoá chính `uuid` (UUIDv7). Tiền dùng `bigint` (VND nguyên). Thời gian dùng `timestamptz` (UTC). Enum lưu `text` kèm `CHECK`.
 - **FK chỉ có trong cùng một schema.** Tham chiếu sang schema khác là *tham chiếu logic*: chỉ lưu id, không có FK. Trong sơ đồ, chúng được ghi chú dạng `→ schema.table`.
-- Mỗi schema có phát hoặc nhận event thì có bảng `outbox_messages` và/hoặc `inbox_messages` (cấu trúc chung ở §9).
+- Outbox và inbox là một cặp bảng chung trong schema `messaging` (§9).
 
 ## 1. Tổng quan và tham chiếu logic giữa schema
 
@@ -480,9 +480,9 @@ erDiagram
 - `audit.audit_entries` là append-only (không cấp quyền `UPDATE`/`DELETE`), có index `(at DESC)`, `(actor_id, at)`, `(target_type, target_id)`.
 - Bảng `admin.*` cập nhật bằng upsert `ON CONFLICT … DO UPDATE SET tx_count = tx_count + 1, …` khi consume event Transaction, có inbox để tránh cộng trùng. Lệnh `admin rebuild-stats` tính lại từ `ITransactionQuery`.
 
-## 9. Bảng chung: outbox và inbox (`FFM.BuildingBlocks`)
+## 9. Bảng chung: outbox và inbox (schema `messaging`)
 
-Có trong mọi schema phát hoặc nhận event.
+Một cặp bảng cho mọi feature, hiện thực ở `Infrastructure/Messaging`.
 
 ```mermaid
 erDiagram

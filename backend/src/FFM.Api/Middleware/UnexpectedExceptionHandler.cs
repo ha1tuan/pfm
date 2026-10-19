@@ -1,9 +1,10 @@
-using FFM.BuildingBlocks.Results;
+using FFM.Api.Errors;
+using FFM.Domain.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace FFM.BuildingBlocks.Http;
+namespace FFM.Api.Middleware;
 
 internal sealed partial class UnexpectedExceptionHandler(
     IProblemDetailsService problemDetails, ILogger<UnexpectedExceptionHandler> logger) : IExceptionHandler
@@ -16,7 +17,7 @@ internal sealed partial class UnexpectedExceptionHandler(
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = httpContext,
-            ProblemDetails = ErrorProblem.Create("internalError", StatusCodes.Status500InternalServerError, httpContext),
+            ProblemDetails = ErrorProblem.Create(ErrorCodes.InternalError,StatusCodes.Status500InternalServerError, httpContext),
             Exception = exception,
         });
     }

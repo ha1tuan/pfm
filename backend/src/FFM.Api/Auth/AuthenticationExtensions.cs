@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
-using FFM.BuildingBlocks.Http;
-using FFM.BuildingBlocks.Options;
-using FFM.BuildingBlocks.Results;
+using FFM.Api.Endpoints;
+using FFM.Api.Errors;
+using FFM.Domain.Common;
+using FFM.Infrastructure.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace FFM.Api.Auth;
@@ -25,24 +27,28 @@ internal static class AuthenticationExtensions
                 bearer.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidIssuer = jwt.Value.Issuer,
-                    ValidAudiences = ["mobile", "admin"],
+                    ValidAudiences = [AudienceGroups.MobileAudience, AudienceGroups.AdminAudience],
+                    ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
                     IssuerSigningKey = new RsaSecurityKey(rsa),
+                    ClockSkew = jwt.Value.ClockSkew,
                 };
                 bearer.Events = new JwtBearerEvents
                 {
                     OnChallenge = context =>
                     {
                         context.HandleResponse();
-                        return WriteProblemAsync(context.HttpContext, "invalidToken", StatusCodes.Status401Unauthorized);
+                        return WriteProblemAsync(context.HttpContext, ErrorCodes.InvalidToken, StatusCodes.Status401Unauthorized);
                     },
                     OnForbidden = context =>
-                        WriteProblemAsync(context.HttpContext, "forbidden", StatusCodes.Status403Forbidden),
+                        WriteProblemAsync(context.HttpContext, ErrorCodes.Forbidden, StatusCodes.Status403Forbidden),
                 };
             });
 
         services.AddAuthorizationBuilder()
-            .AddPolicy(AudienceGroups.MobileUserPolicy, p => p.RequireAuthenticatedUser().RequireClaim("aud", "mobile"))
-            .AddPolicy(AudienceGroups.StaffPolicy, p => p.RequireAuthenticatedUser().RequireClaim("aud", "admin"));
+            .AddPolicy(AudienceGroups.MobileUserPolicy, p => p.RequireAuthenticatedUser()
+                .RequireClaim(JwtRegisteredClaimNames.Aud, AudienceGroups.MobileAudience))
+            .AddPolicy(AudienceGroups.StaffPolicy, p => p.RequireAuthenticatedUser()
+                .RequireClaim(JwtRegisteredClaimNames.Aud, AudienceGroups.AdminAudience));
 
         return services;
     }

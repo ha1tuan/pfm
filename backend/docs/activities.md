@@ -1,6 +1,6 @@
 # Sơ đồ activity
 
-Dùng Mermaid `flowchart`. Mỗi `subgraph` là một swimlane (actor, module hoặc process). `{…}` là điểm rẽ nhánh, `([…])` là điểm bắt đầu và kết thúc. Bước nào có ghi **[DB tx]** thì toàn bộ thay đổi trong lane đó commit cùng nhau, gồm cả outbox và audit (xem [architecture.md §5](architecture.md#một-db-transaction-xuyên-schema)).
+Dùng Mermaid `flowchart`. Mỗi `subgraph` là một swimlane (actor, feature hoặc process). `{…}` là điểm rẽ nhánh, `([…])` là điểm bắt đầu và kết thúc. Bước nào có ghi **[DB tx]** thì toàn bộ thay đổi trong lane đó commit cùng nhau, gồm cả outbox và audit (xem [architecture.md §5](architecture.md#một-db-transaction-xuyên-schema)).
 
 Mục lục:
 

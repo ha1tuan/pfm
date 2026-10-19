@@ -1,8 +1,8 @@
-namespace FFM.BuildingBlocks.Results;
+namespace FFM.Domain.Common;
 
 /// <summary>
-/// Codes raised by the shared pipeline rather than by one module (backend/docs/api.md §3).
-/// Module-specific codes live with their module's errors.
+/// Codes raised by the shared pipeline rather than by one feature (backend/docs/api.md §3).
+/// Feature-specific codes live in that feature's errors class, e.g. Domain/Errors/TransferErrors.cs.
 /// </summary>
 public static class ErrorCodes
 {

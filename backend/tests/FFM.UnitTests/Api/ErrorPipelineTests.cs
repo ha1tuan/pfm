@@ -2,7 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 
-namespace FFM.BuildingBlocks.Tests;
+namespace FFM.UnitTests.Api;
 
 public class ErrorPipelineTests
 {

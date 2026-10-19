@@ -1,9 +1,7 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
 
-namespace FFM.BuildingBlocks.Http;
+namespace FFM.Api.Middleware;
 
-public static class ErrorHandlingExtensions
+internal static class ErrorHandlingExtensions
 {
     public static IServiceCollection AddErrorHandling(this IServiceCollection services)
     {

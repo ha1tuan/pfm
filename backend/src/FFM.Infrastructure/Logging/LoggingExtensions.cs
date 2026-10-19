@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Formatting.Compact;
 
-namespace FFM.BuildingBlocks.Logging;
+namespace FFM.Infrastructure.Logging;
 
 public static class LoggingExtensions
 {

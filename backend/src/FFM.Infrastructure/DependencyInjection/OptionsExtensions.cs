@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace FFM.BuildingBlocks.Options;
+namespace FFM.Infrastructure.DependencyInjection;
 
 public static class OptionsExtensions
 {

@@ -3,14 +3,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FFM.BuildingBlocks\FFM.BuildingBlocks.csproj" />
-    <ProjectReference Include="..\Modules\Identity\FFM.Modules.Identity\FFM.Modules.Identity.csproj" />
-    <ProjectReference Include="..\Modules\Wallet\FFM.Modules.Wallet\FFM.Modules.Wallet.csproj" />
-    <ProjectReference Include="..\Modules\Transfer\FFM.Modules.Transfer\FFM.Modules.Transfer.csproj" />
-    <ProjectReference Include="..\Modules\BankLink\FFM.Modules.BankLink\FFM.Modules.BankLink.csproj" />
-    <ProjectReference Include="..\Modules\Pricing\FFM.Modules.Pricing\FFM.Modules.Pricing.csproj" />
-    <ProjectReference Include="..\Modules\Pfm\FFM.Modules.Pfm\FFM.Modules.Pfm.csproj" />
-    <ProjectReference Include="..\Modules\Audit\FFM.Modules.Audit\FFM.Modules.Audit.csproj" />
-    <ProjectReference Include="..\Modules\Admin\FFM.Modules.Admin\FFM.Modules.Admin.csproj" />
+    <ProjectReference Include="..\FFM.Application\FFM.Application.csproj" />
+    <ProjectReference Include="..\FFM.Infrastructure\FFM.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="FFM.UnitTests" />
   </ItemGroup>
 </Project>

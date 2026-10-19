@@ -103,7 +103,7 @@ Mọi `POST` di chuyển tiền đều cần `Idempotency-Key` và `X-Smart-Otp`
 | GET / POST | `/goals` | — | UC-44 |
 | PUT / DELETE | `/goals/{id}` | `{ name, icon, target, saved }` | UC-44 |
 
-`PUT /transactions/{id}/category` là endpoint của module **PFM**, gắn vào route `transactions` cho tiện phía FE. Handler kiểm Transaction thuộc về User qua `ITransactionQuery`.
+`PUT /transactions/{id}/category` là endpoint của feature **PFM**, gắn vào route `transactions` cho tiện phía FE. Handler kiểm Transaction thuộc về User qua `ITransactionQuery`.
 
 ### 2.6 Admin
 
@@ -185,9 +185,9 @@ Không có `DELETE` cho bất kỳ Config Version, Transaction, bút toán hay A
 - **Dữ liệu nhạy cảm**: số tài khoản chỉ trả bản mask. Tên người nhận khi tra cứu chỉ trả bản mask một phần (`NGUYEN V. A`).
 - **Admin xem chi tiết Ví** luôn ghi audit `view`. FE không prefetch dữ liệu này (`apps/admin/CLAUDE.md`).
 
-## 5. Service, contract và event theo module
+## 5. Use case, interface và event theo feature
 
-Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface public trong `*.Contracts`, **Ev↑** = event phát ra, **Ev↓** = event consume.
+Ký hiệu: **C** = command handler, **Q** = query handler (cả hai ở `Application/UseCases/<Feature>/`), **S** = service CRUD (`Application/Services/<Feature>/`), **I** = interface ở `Application/Interfaces` mà feature khác gọi, **Ev↑** = event phát ra, **Ev↓** = event consume. Tiêu chí chọn handler hay service: [architecture.md §5](architecture.md#5-tầng-application-handler-cho-nghiệp-vụ-service-cho-crud).
 
 ### Identity
 
@@ -195,7 +195,7 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 |---|---|
 | C | `RequestRegistrationOtp`, `RegisterUser`, `LoginUser`, `RequestDeviceBindingOtp`, `BindDevice`, `RefreshToken`, `Logout`, `LoginStaff`, `VerifyStaffMfa` |
 | Q | `GetCurrentUser`, `GetCurrentStaff` |
-| Ct | `ISmartOtpVerifier.VerifyAsync(userId, deviceId, code, ct) → Result` |
+| I | `ISmartOtpVerifier.VerifyAsync(userId, deviceId, code, ct) → Result` |
 | | `IUserDirectory.GetAsync(userId)`, `FindByPhoneAsync(phone) → UserSummary { id, fullName, phone, kycLevel, status }` |
 | | `IStaffDirectory.GetAsync(staffId) → StaffSummary` |
 | Adapter | `ISmsSender` (mock), `ITotpService`, `IPasswordHasher` (Identity) |
@@ -207,7 +207,7 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 |---|---|
 | C | `LockWallet`, `UnlockWallet` (admin) |
 | Q | `GetMyWallet`, `GetWalletDetail` (admin), `SearchWallets` (admin, Dapper) |
-| Ct | `ILedgerPosting.PostAsync(JournalRequest, ct) → Result<JournalPosted>`. Chạy trong `IUnitOfWork` hiện tại; caller phải gọi `LockAsync` trước |
+| I | `ILedgerPosting.PostAsync(JournalRequest, ct) → Result<JournalPosted>`. Chạy trong `IUnitOfWork` hiện tại; caller phải gọi `LockAsync` trước |
 | | `IWalletLocking.LockForUpdateAsync(walletIds[], ct) → WalletState[] { id, status, availableBalance, heldBalance }` |
 | | `IWalletQuery.GetByUserAsync(userId)`, `GetAsync(walletId)`, `GetLedgerEntriesAsync(transactionId)` |
 | Ev↓ | `UserRegistered` → tạo Wallet + 2 tài khoản Sổ cái |
@@ -219,7 +219,7 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 |---|---|
 | C | `CreateTransferQuote`, `SubmitP2PTransfer`, `SubmitBankTransfer`, `SubmitTopUp`, `SubmitWithdrawal`, `ReverseTransaction` (admin), `SettleBankTransaction` (nội bộ, từ consumer) |
 | Q | `GetTransaction` (User), `GetTransactionDetail` (admin, kèm bút toán qua `IWalletQuery`), `SearchTransactions` (admin, Dapper), `GetLimitUsage`, `LookupWalletRecipient` |
-| Ct | `ITransactionQuery.GetAsync(id)`, `ListForUserAsync(userId, cursor, filter)`, `ListForRebuildAsync(from, to)` |
+| I | `ITransactionQuery.GetAsync(id)`, `ListForUserAsync(userId, cursor, filter)`, `ListForRebuildAsync(from, to)` |
 | Domain | `Transaction` aggregate: `Authorize()`, `StartProcessing()`, `Succeed()`, `Fail(reason)`, `MarkReversed(reversalId)`. Chuyển trạng thái sai lifecycle trả `invalidStatusTransition` |
 | | `LimitPolicy.Check(rule, usage, amount) → Result`, `IdempotencyStore` |
 | Phụ thuộc | `ISmartOtpVerifier`, `IUserDirectory`, `IPricingQuery`, `IWalletLocking`, `ILedgerPosting`, `ILinkedBankAccountQuery`, `IAuditWriter` |
@@ -231,9 +231,10 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 
 | Loại | Tên |
 |---|---|
-| C | `RequestBankLink`, `ConfirmBankLink`, `UnlinkBankAccount`, `SetDefaultBankAccount`, `HandleBankCallback`, `ExecuteBankPayment` (consumer), `SweepTimedOutPayments` (job) |
-| Q | `ListBanks`, `ListLinkedBankAccounts`, `LookupBankAccountHolder` |
-| Ct | `ILinkedBankAccountQuery.GetForUserAsync(userId, id) → LinkedBankAccountSummary?`, `ListForUserAsync(userId)` |
+| C | `RequestBankLink`, `ConfirmBankLink`, `UnlinkBankAccount`, `HandleBankCallback`, `ExecuteBankPayment` (consumer), `SweepTimedOutPayments` (job) |
+| Q | `LookupBankAccountHolder` (gọi `IBankProvider`) |
+| S | `IBankCatalogService` (list ngân hàng), `ILinkedBankAccountService` (list, đặt mặc định) |
+| I | `ILinkedBankAccountQuery.GetForUserAsync(userId, id) → LinkedBankAccountSummary?`, `ListForUserAsync(userId)` |
 | Adapter | `IBankProvider`: `VerifyHolderAsync`, `StartLinkAsync`, `ConfirmLinkAsync`, `DebitAsync`, `CreditAsync`, `GetStatusAsync`. Callback verify bằng `IBankCallbackSignature` |
 | Ev↓ | `BankPaymentRequested` |
 | Ev↑ | `BankPaymentSettled { transactionId, providerRef }`, `BankPaymentFailed { transactionId, reason }` |
@@ -244,7 +245,7 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 |---|---|
 | C | `CreateFeeConfigVersion`, `UpdateDraftFeeConfigVersion`, `SubmitFeeConfigVersion`, `ApproveFeeConfigVersion`, `RejectFeeConfigVersion` (tương tự với `…LimitConfigVersion`), `ActivateDueConfigVersions` (job) |
 | Q | `ListFeeConfigVersions`, `GetFeeConfigVersion` (kèm diff), tương tự với Limit |
-| Ct | `IPricingQuery.ResolveFeeAsync(type, amount, at) → FeeQuote { fee, configVersionId }` |
+| I | `IPricingQuery.ResolveFeeAsync(type, amount, at) → FeeQuote { fee, configVersionId }` |
 | | `IPricingQuery.ResolveLimitsAsync(type, kycLevel, at) → LimitRule + configVersionId` |
 | Domain | `FeeCalculator` (số nguyên, làm tròn lên), `ConfigVersion` (state machine, maker ≠ checker), `FeeRuleSetValidator` (band không chồng nhau) |
 | Ev↑ | `ConfigVersionActivated { kind: fee \| limit, versionId, kycLevel? }` |
@@ -253,15 +254,16 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 
 | Loại | Tên |
 |---|---|
-| C | `SetTransactionCategory`, `CreateManualEntry`, `UpdateManualEntry`, `DeleteManualEntry`, `UpsertBudget`, `DeleteBudget`, `CreateGoal`, `UpdateGoal`, `DeleteGoal` |
-| Q | `ListActivities` (gộp `ITransactionQuery` + `manual_entries` + `transaction_categories`), `ListCategories`, `GetBudgets` (kèm `spent`), `ListGoals` |
+| C | `SetTransactionCategory` (kiểm Transaction thuộc User qua `ITransactionQuery`) |
+| S | `IManualEntryService` (create, update, delete), `IBudgetService` (get kèm `spent`, upsert, delete), `IGoalService` (list, create, update, delete), `ICategoryService` (list) |
+| Q | `ListActivities` (gộp `ITransactionQuery` + `manual_entries` + `transaction_categories`) |
 | Ev↓ | `TransactionSucceeded` → tạo `transaction_categories` mặc định cho mỗi Wallet liên quan. `TransactionReversed` → thêm dòng cho Reversal |
 
 ### Audit
 
 | Loại | Tên |
 |---|---|
-| Ct | `IAuditWriter.WriteAsync(AuditRecord { actor, action, target, before, after, ip, userAgent, correlationId }, ct)`. Ghi trong `IUnitOfWork` hiện tại, nên audit commit cùng use case |
+| I | `IAuditWriter.WriteAsync(AuditRecord { actor, action, target, before, after, ip, userAgent, correlationId }, ct)`. Ghi trong `IUnitOfWork` hiện tại, nên audit commit cùng use case |
 | Q | `SearchAuditEntries` (admin, Dapper) |
 
 `IAuditWriter` được gọi tường minh trong mọi handler của Staff (kể cả query xem chi tiết Ví) và ở các sự kiện bảo mật của User: đăng nhập, kích hoạt hoặc thu hồi thiết bị, sai OTP, phát hiện dùng lại token.
@@ -274,7 +276,7 @@ Ký hiệu: **C** = command handler, **Q** = query handler, **Ct** = interface p
 | C | `RebuildStats` (lệnh vận hành) |
 | Ev↓ | `TransactionSucceeded`, `TransactionFailed`, `TransactionReversed` → upsert thống kê theo giờ và đánh dấu Ví hoạt động |
 
-Các endpoint admin khác (transactions, wallets, config, audit) nằm ở **module sở hữu dữ liệu**, gắn vào group `/api/admin/v1` có policy Staff. Module Admin chỉ giữ Dashboard.
+Các endpoint admin khác (transactions, wallets, config, audit) nằm ở **feature sở hữu dữ liệu** (`Api/Endpoints/<Feature>/`), gắn vào group `/api/admin/v1` có policy Staff. Feature Admin chỉ giữ Dashboard.
 
 ### Bảng tổng hợp event
 
@@ -290,4 +292,4 @@ Các endpoint admin khác (transactions, wallets, config, audit) nằm ở **mod
 | `TransactionReversed` | `transfer.transaction-reversed` | Transfer | PFM, Admin |
 | `ConfigVersionActivated` | `pricing.config-version-activated` | Pricing | Pricing cache (mọi process, queue tạm theo instance) |
 
-Event là hợp đồng giữa các module. Đổi schema event thì thêm field tuỳ chọn. Nếu phải thay đổi phá vỡ tương thích thì tạo event version mới (`…V2`) và chạy song song cho đến khi mọi consumer chuyển xong.
+Event là hợp đồng giữa các feature và giữa Api với Worker. Đổi schema event thì thêm field tuỳ chọn. Nếu phải thay đổi phá vỡ tương thích thì tạo event version mới (`…V2`) và chạy song song cho đến khi mọi consumer chuyển xong.

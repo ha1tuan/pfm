@@ -1,7 +1,8 @@
-using FFM.BuildingBlocks.Results;
+using FFM.Api.Errors;
+using FFM.Domain.Common;
 using Microsoft.AspNetCore.Http;
 
-namespace FFM.BuildingBlocks.Tests;
+namespace FFM.UnitTests.Api;
 
 public class ResultToHttpTests
 {

@@ -3,7 +3,7 @@ using Npgsql;
 using RabbitMQ.Client;
 using StackExchange.Redis;
 
-namespace FFM.BuildingBlocks.Health;
+namespace FFM.Infrastructure.Health;
 
 internal sealed class PostgresHealthCheck(NpgsqlDataSource dataSource) : IHealthCheck
 {

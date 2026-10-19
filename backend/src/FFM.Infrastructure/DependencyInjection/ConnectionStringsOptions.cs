@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace FFM.BuildingBlocks.Infrastructure;
+namespace FFM.Infrastructure.DependencyInjection;
 
 public sealed class ConnectionStringsOptions
 {

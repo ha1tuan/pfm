@@ -1,12 +1,13 @@
+using FFM.Domain.Common;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace FFM.BuildingBlocks.Results;
+namespace FFM.Api.Errors;
 
 /// <summary>The single mapping from <see cref="Error"/> to RFC 9457 problem details with <c>code</c> and <c>traceId</c>.</summary>
-public static partial class ErrorProblem
+internal static partial class ErrorProblem
 {
     public static int StatusCodeOf(ErrorKind kind) => kind switch
     {
@@ -16,6 +17,8 @@ public static partial class ErrorProblem
         ErrorKind.NotFound => StatusCodes.Status404NotFound,
         ErrorKind.Conflict => StatusCodes.Status409Conflict,
         ErrorKind.BusinessRule => StatusCodes.Status422UnprocessableEntity,
+        ErrorKind.TooManyRequests => StatusCodes.Status429TooManyRequests,
+        ErrorKind.Unavailable => StatusCodes.Status503ServiceUnavailable,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
 

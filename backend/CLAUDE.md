@@ -1,4 +1,4 @@
-# Backend — ASP.NET Core modular monolith
+# Backend — ASP.NET Core, Clean Architecture
 
 Money invariants and domain language live in the root `CLAUDE.md` and `GLOSSARY.md`; they bind every line here.
 
@@ -7,37 +7,48 @@ Money invariants and domain language live in the root `CLAUDE.md` and `GLOSSARY.
 `docs/` is the system design. Read the matching file before you:
 
 - add or change a table, column or Ledger posting → `docs/erd.md` (schemas, Ledger accounts, standard journals)
-- add or change an endpoint, DTO, error code, contract or integration event → `docs/api.md`
+- add or change an endpoint, DTO, error code, use case or integration event → `docs/api.md`
 - implement a flow (registration, device binding, bank linking, any money command, Reversal, maker–checker, Wallet Lock, token refresh) → `docs/activities.md`
 - touch solution layout, DI, messaging, caching, jobs or configuration → `docs/architecture.md`
 
 `docs/README.md` indexes decisions D1–D18. Code and docs move together: a change that departs from a doc updates that doc in the same change.
 
-## Solution layout
+## Solution layout (ADR-0004)
 
-- Each module is two projects: `FFM.Modules.<X>` (folders `Domain/` — entities and rules, no EF; `Application/` — use cases; `Infrastructure/` — DbContext, Dapper, adapters, consumers; `Api/` — endpoints; all `internal`) and `FFM.Modules.<X>.Contracts` (public interfaces + integration events, references only `FFM.BuildingBlocks`).
-- A module references other modules' `.Contracts` only. Hosts `FFM.Api` and `FFM.Worker` call each module's `AddXxxModule()` / `MapXxxEndpoints()` and nothing else. NetArchTest enforces both.
-- Ownership: **Transfer** owns `Transaction` and its lifecycle for every type, Reversal included. **Wallet** owns the Ledger and posts only through `ILedgerPosting`. **PFM** owns Category assignment for Transactions. **Admin** owns only Dashboard stats; every other admin endpoint lives in the module that owns the data.
+Four layer projects plus a background host; dependencies point inward only:
 
-## Module boundaries (ADR-0002)
+- `FFM.Domain` — `Common/` (`Result`, `Error`, `ErrorCodes`), `Entities/<Feature>/`, `ValueObjects/`, `Interfaces/` (`I<Aggregate>Repository`), `Errors/<Feature>Errors`, `Exceptions/` (invariant breaches only). References nothing but the BCL.
+- `FFM.Application` — `Interfaces/` (handler abstractions, `IUnitOfWork`, `ILedgerPosting`, `IAuditWriter`, `IOutbox`, providers, `I<Feature>Query`, `I<Name>Service`), `UseCases/<Feature>/Commands|Queries/`, `Services/<Feature>/`, `DTOs/<Feature>/`, `Validators/<Feature>/`. References Domain and FluentValidation only — no ASP.NET Core, EF Core, Npgsql, Dapper, RabbitMQ, Redis or Serilog.
+- `FFM.Infrastructure` — `Data/` (one `FfmDbContext`, `Configurations/<Feature>/`, `Repositories/`, `Queries/` for Dapper, `UnitOfWork`, `LedgerPosting`), `Caching/`, `Messaging/`, `External/` (provider mocks), `Jobs/`, `Health/`, `Logging/`, `DependencyInjection/`.
+- `FFM.Api` — `Endpoints/<Feature>/`, `Middleware/`, `Filters/`, `Errors/`, `Auth/`, `Program.cs`. Types are `internal`.
+- `FFM.Worker` — host only. Consumers and jobs are registered by `AddWorkerServices()`, which only the Worker calls.
+- Features (Identity, Wallet, Transfer, BankLink, Pricing, PFM, Audit, Admin) are subfolders repeated in each layer, not projects. `FFM.ArchitectureTests` enforces the layer references and where handlers and services live.
 
-- Each module owns one PostgreSQL schema and one DbContext. Queries touch only that schema: `identity`, `wallet`, `transfer`, `banklink`, `pricing`, `pfm`, `audit`, `admin`.
-- Cross-module: call the other module's `Contracts` interface (in-process) or react to its integration event. A cross-module JOIN means the boundary is wrong — raise it. Cross-schema references are ids only, no FKs.
-- Admin module reads other modules through their contracts or its own event-fed stats tables, never their DbContexts.
+## Feature ownership
+
+Nothing in the compiler enforces these anymore, so review for them:
+
+- **Transfer** owns `Transaction` and its lifecycle for every type, Reversal included; only `UseCases/Transfer/` changes Transaction status.
+- **Wallet** owns the Ledger; nothing writes Ledger rows except `ILedgerPosting`.
+- **PFM** owns Category assignment for Transactions.
+- **Admin** owns only Dashboard stats; every other admin endpoint lives under the feature that owns the data.
+- Each feature keeps its PostgreSQL schema: `identity`, `wallet`, `transfer`, `banklink`, `pricing`, `pfm`, `audit`, `admin`, plus `messaging` for outbox/inbox. Writes go through the owning feature's repository; Dapper read queries may JOIN across schemas. FKs stay within one schema.
 
 ## Application layer
 
-- One handler per use case, implementing `ICommandHandler<TCommand, TResult>` / `IQueryHandler<TQuery, TResult>` from BuildingBlocks, injected straight into the endpoint. Handlers are hand-written; MediatR is commercial from v13, same reasoning as ADR-0003.
-- Business failures return `Result<T>` carrying `Error(Code, Kind)`. `Code` is the message key the apps display (`overLimit`, `walletLocked` …; full list in `docs/api.md`). Endpoints map it to ProblemDetails with `code`. Exceptions are for the unexpected and end at the global handler as `500 internalError`.
+- **Business use cases are handlers**: one class per use case implementing `ICommandHandler<TCommand, TResult>` / `IQueryHandler<TQuery, TResult>`, under `UseCases/<Feature>/`, named `*Handler`, injected straight into the endpoint. Hand-written; MediatR is commercial from v13, same reasoning as ADR-0003.
+- **Plain CRUD is a service**: `I<Name>Service` / `<Name>Service` under `Services/<Feature>/` for create/read/update/delete on one User-owned entity (Manual Entry, Budget, Goal, Category list, bank catalog, Linked Bank Account list).
+- A use case is a handler if it touches balances, Transactions, the Ledger or Wallet Lock; needs an idempotency key, OTP or maker–checker; writes audit or outbox; spans several aggregates; or has a lifecycle. A service that grows any of these becomes a handler. When unsure, use a handler. Full table: `docs/architecture.md` §5.
+- Business failures return `Result<T>` / `Result` carrying `Error(Code, Kind)`. `Code` is the message key the apps display (`overLimit`, `walletLocked` …; full list in `docs/api.md`). Endpoints map it to ProblemDetails with `code`. Exceptions are for the unexpected and end at the global handler as `500 internalError`.
 - Request validation: FluentValidation via an endpoint filter at the API boundary.
-- DB transaction, outbox write and audit write are explicit calls inside the handler.
-- Minimal API with one `MapGroup` per audience: `/api/mobile/v1`, `/api/admin/v1`, plus `/api/internal/v1` for HMAC-signed provider callbacks. DTOs are `record`s.
+- DB transaction, outbox write and audit write are explicit calls inside the handler. Services never open `IUnitOfWork`, write audit or write outbox.
+- Minimal API with one `MapGroup` per audience: `/api/mobile/v1`, `/api/admin/v1`, plus `/api/internal/v1` for HMAC-signed provider callbacks. Endpoints use only Application types (handlers, services, DTOs), never repositories or the DbContext. DTOs are `record`s.
 
 ## Data access
 
-- EF Core for writes and aggregate loading; Dapper for reports, statements and admin list/filter queries.
-- Migrations per module DbContext, schema-qualified.
-- One unit of work spans schemas: `IUnitOfWork` opens one `NpgsqlConnection` + transaction per scope and every module DbContext enlists in it. This is how Transfer, Wallet, Audit and outbox rows commit atomically.
+- EF Core through per-aggregate repositories for writes and aggregate loading (no generic `IRepository<T>`); Dapper behind `I<Feature>Query` for reports, statements and admin list/filter queries.
+- One `FfmDbContext`; each entity maps to its feature schema with `ToTable(name, schema)`. One migration set.
+- One unit of work spans schemas: `IUnitOfWork` wraps the `FfmDbContext` transaction, and Dapper queries share its connection and transaction. This is how Transfer, Wallet, Audit and outbox rows commit atomically.
 - Ledger posting: lock wallet rows with `SELECT ... FOR UPDATE` in ascending id order, inside that one transaction with the balance snapshot and outbox write.
 - Column types: `uuid` (UUIDv7) keys, `bigint` money, `timestamptz` in UTC. Day/month boundaries for Limits and Budgets use `Asia/Ho_Chi_Minh`.
 
@@ -57,15 +68,15 @@ Money invariants and domain language live in the root `CLAUDE.md` and `GLOSSARY.
 
 ## Messaging (ADR-0003)
 
-- `RabbitMQ.Client` only. Outbox/inbox live in `FFM.BuildingBlocks`.
+- `RabbitMQ.Client` only. `IOutbox` is an Application interface; outbox, inbox, publisher and consumers live in `Infrastructure/Messaging`, tables in the `messaging` schema.
 - State change + outbox row commit together; the Worker publishes.
-- Topology: topic exchange `ffm.events`, routing key `<module>.<event-kebab>`, one durable queue per consumer `<consumer-module>.<event-kebab>`.
+- Topology: topic exchange `ffm.events`, routing key `<feature>.<event-kebab>`, one durable queue per consumer `<consumer-feature>.<event-kebab>`.
 - Consumers dedupe by message id via the inbox table, then act. After 3 retries with backoff, messages go to `ffm.dlx` → `<queue>.dlq`.
 - Bank-facing Transactions (Top-up, Withdrawal, Bank Transfer) move `Processing → Succeeded | Failed` from provider callbacks/consumer results, never synchronously in the HTTP request. A sweeper job resolves payments with no callback.
 
 ## External providers
 
-Bank and SMS sit behind interfaces in the owning module (BankLink, Identity). Only mock adapters exist, registered as keyed services and selected by `BankProvider:Mode` / `Sms:Mode`. They must simulate success, failure, timeout and delayed callback so the lifecycle can be exercised.
+Bank and SMS sit behind `IBankProvider` / `ISmsSender` in `Application/Interfaces`; adapters live in `Infrastructure/External/Bank|Sms`. Only mock adapters exist, registered as keyed services and selected by `BankProvider:Mode` / `Sms:Mode`. They must simulate success, failure, timeout and delayed callback so the lifecycle can be exercised.
 
 ## Caching
 
@@ -84,11 +95,11 @@ Bank and SMS sit behind interfaces in the owning module (BankLink, Identity). On
 
 ## Audit
 
-Staff actions — viewing Wallet detail included — and User security events go through the Audit module's contract (before/after, actor, IP, timestamp). Writing an audit record is part of the same use case and the same DB transaction — a Staff config change without its audit record is incomplete.
+Staff actions — viewing Wallet detail included — and User security events go through `IAuditWriter` (before/after, actor, IP, timestamp). Writing an audit record is part of the same use case and the same DB transaction — a Staff config change without its audit record is incomplete.
 
 ## Testing
 
-xUnit v3 (Microsoft.Testing.Platform, opted in via `global.json`) + Testcontainers (PostgreSQL, RabbitMQ, Redis), NSubstitute for test doubles, NetArchTest for layer and boundary rules. Integration tests run on real PostgreSQL so `FOR UPDATE`, transactions and constraints behave as in production. Ledger, Transfer and Pricing changes ship with tests covering: idempotent replay, concurrent debits on one wallet, limit boundaries (per-transaction/day/month, per KYC Level), and fee/limit resolution by effective date.
+xUnit v3 (Microsoft.Testing.Platform, opted in via `global.json`) + Testcontainers (PostgreSQL, RabbitMQ, Redis), NSubstitute for test doubles, NetArchTest plus assembly-reference checks for layer rules and handler/service placement. Integration tests run on real PostgreSQL so `FOR UPDATE`, transactions and constraints behave as in production. Ledger, Transfer and Pricing changes ship with tests covering: idempotent replay, concurrent debits on one wallet, limit boundaries (per-transaction/day/month, per KYC Level), and fee/limit resolution by effective date.
 
 ## API
 

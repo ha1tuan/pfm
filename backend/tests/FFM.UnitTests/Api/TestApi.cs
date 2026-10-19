@@ -1,4 +1,4 @@
-using FFM.BuildingBlocks.Http;
+using FFM.Api.Middleware;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace FFM.BuildingBlocks.Tests;
+namespace FFM.UnitTests.Api;
 
 /// <summary>An in-memory host wired with the same error pipeline as FFM.Api, plus test-only endpoints.</summary>
 internal static class TestApi

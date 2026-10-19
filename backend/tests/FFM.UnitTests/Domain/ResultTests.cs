@@ -1,6 +1,6 @@
-using FFM.BuildingBlocks.Results;
+using FFM.Domain.Common;
 
-namespace FFM.BuildingBlocks.Tests;
+namespace FFM.UnitTests.Domain;
 
 public class ResultTests
 {

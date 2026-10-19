@@ -1,21 +1,32 @@
-using FFM.BuildingBlocks.Options;
+using FFM.Application.Interfaces;
+using FFM.Infrastructure.Common;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using RabbitMQ.Client;
 using StackExchange.Redis;
 
-namespace FFM.BuildingBlocks.Infrastructure;
+namespace FFM.Infrastructure.DependencyInjection;
 
 public static class InfrastructureExtensions
 {
-    /// <summary>Connections to PostgreSQL, RabbitMQ and Redis shared by every module in a host.</summary>
+    /// <summary>
+    /// Implementations of the Application interfaces plus what every host shares:
+    /// clock, id generator, and the PostgreSQL, RabbitMQ and Redis connections.
+    /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IIdGenerator, UuidV7Generator>();
+
         services.AddValidatedOptions<ConnectionStringsOptions>(ConnectionStringsOptions.SectionName);
 
         services.AddSingleton(sp =>
-            NpgsqlDataSource.Create(sp.GetRequiredService<IOptions<ConnectionStringsOptions>>().Value.Postgres));
+            new NpgsqlDataSourceBuilder(sp.GetRequiredService<IOptions<ConnectionStringsOptions>>().Value.Postgres)
+                .UseLoggerFactory(sp.GetRequiredService<ILoggerFactory>())
+                .Build());
 
         services.AddSingleton<IConnectionMultiplexer>(sp =>
         {
