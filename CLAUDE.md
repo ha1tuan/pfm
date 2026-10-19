@@ -53,3 +53,17 @@ A separate Python service (FastAPI + LangGraph) for auto-categorization, spendin
 - Code, comments, commit messages and `CLAUDE.md` files: English. `GLOSSARY.md` is bilingual; use the English name in code.
 - C#: Microsoft naming, async/await end to end, built-in DI.
 - Commits: Conventional Commits.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues for `ha1tuan/pfm`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `GLOSSARY.md` + `docs/adr/`. See `docs/agents/domain.md`.
