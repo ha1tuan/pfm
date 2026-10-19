@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\FFM.BuildingBlocks\FFM.BuildingBlocks.csproj" />
-    <ProjectReference Include="..\FFM.Modules.Transfer.Contracts\FFM.Modules.Transfer.Contracts.csproj" />
-  </ItemGroup>
-</Project>
