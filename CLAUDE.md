@@ -7,7 +7,7 @@ Production-grade **demo** e-wallet: real architecture and business rules (ledger
 Each folder has its own `CLAUDE.md` with area-specific rules.
 
 ```
-backend/              ASP.NET Core modular monolith (API + Worker)
+backend/              ASP.NET Core, Clean Architecture (Domain · Application · Infrastructure · Api + Worker)
 apps/                 shared frontend rules
 apps/mobile/          Expo app for Users (iOS/Android)
 apps/admin/           React + Vite console for Staff
@@ -26,7 +26,7 @@ Read `GLOSSARY.md` before naming anything — classes, tables, endpoints, UI str
 - **Transaction** (moves money, hits the Ledger) ≠ **Manual Entry** (user-typed, never touches the Ledger).
 - **User** (mobile end-user) ≠ **Staff** (admin console operator).
 
-Read the relevant ADR in `docs/adr/` before changing ledger, module boundaries, or messaging. Propose a new ADR when a change is hard to reverse, surprising, and the result of a real trade-off.
+Read the relevant ADR in `docs/adr/` before changing ledger, layer boundaries, or messaging. Propose a new ADR when a change is hard to reverse, surprising, and the result of a real trade-off.
 
 ## Money invariants (hard guardrails)
 
